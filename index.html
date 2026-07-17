@@ -60,21 +60,15 @@
                 <div class="input-group">
                     <label>Chapter PDF</label>
                     <div id="drop-zone" class="drop-zone">
-                        <span class="upload-icon">📁</span>
-                        <p>Drag & drop Chapter PDF here</p>
-                        <p class="or-text">or</p>
-                        <button class="select-btn">Choose File</button>
+                        <span class="drop-zone-icon">📤</span>
+                        <p class="drop-zone-text">Drag & drop Chapter PDF here or click to browse</p>
                         <input type="file" id="file-input" accept=".pdf,.txt" style="display: none;">
                     </div>
 
                     <!-- Uploaded File Info -->
-                    <div id="uploaded-file-status" class="file-status-box" style="display: none;">
-                        <span class="status-icon">✓</span>
-                        <div class="file-details">
-                            <span class="file-name-text">filename.pdf</span>
-                            <span class="file-status-label">Successfully Extracted</span>
-                        </div>
-                        <button id="remove-file-btn" class="remove-btn">❌</button>
+                    <div id="uploaded-file-status" class="file-status" style="display: none;">
+                        <span class="file-name-text">filename.pdf</span>
+                        <span class="file-remove-btn" id="remove-file-btn">❌</span>
                     </div>
                 </div>
 
@@ -85,7 +79,7 @@
                 </div>
 
                 <!-- Analyze Button -->
-                <button id="analyze-btn" class="action-btn" disabled>🔍 Analyze All Files & Start Chat</button>
+                <button id="analyze-btn" class="btn primary-btn" disabled>🔍 Analyze All Files & Start Chat</button>
             </section>
 
             <!-- Middle Panel: Interactive Chat -->
@@ -96,7 +90,7 @@
                 </div>
                 <div class="chat-input-area">
                     <input type="text" id="chat-input" placeholder="Pehle file analyze karein..." disabled>
-                    <button id="chat-send-btn" class="send-btn" disabled>Send</button>
+                    <button id="chat-send-btn" class="btn send-btn" disabled>Send</button>
                 </div>
             </section>
 
@@ -111,7 +105,7 @@
                             <span class="tracker-icon">📊</span>
                             <h3>Cumulative NCF Book Tracker</h3>
                         </div>
-                        <button id="reset-tracker-btn" class="reset-tracker-btn" title="Reset Cumulative Tracker">Reset Tracker</button>
+                        <button id="reset-tracker-btn" class="reset-btn" title="Reset Cumulative Tracker">Reset Tracker</button>
                     </div>
                     
                     <div class="tracker-stats">
@@ -129,7 +123,7 @@
                         <div class="progress-bar" id="tracker-progress-bar" style="width: 0%;"></div>
                     </div>
 
-                    <button id="toggle-tracker-details-btn" class="toggle-details-btn">🔍 View Coverage Matrix</button>
+                    <button id="toggle-tracker-details-btn" class="text-btn">🔍 View Coverage Matrix</button>
 
                     <div id="tracker-details-panel" class="tracker-details-panel" style="display: none;">
                         <div class="matrix-title">NCF English Middle-Stage Competency Matrix</div>

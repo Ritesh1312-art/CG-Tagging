@@ -355,7 +355,7 @@ dropZone.addEventListener('drop', async (e) => {
     if (files.length > 0) handleFileUpload(files[0]);
 });
 
-document.querySelector('.select-btn').addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', (e) => {
     if (e.target.files.length > 0) handleFileUpload(e.target.files[0]);
 });
