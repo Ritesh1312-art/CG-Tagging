@@ -362,22 +362,36 @@ fileInput.addEventListener('change', (e) => {
 
 // Client-Side PDF text extractor using PDF.js
 async function handleFileUpload(file) {
-    showLoading(true, '📄 Reading PDF directly in browser...');
+    showLoading(true, '📄 Reading PDF and checking cache...');
     try {
         state.uploadedFilename = file.name;
         
         let text = '';
-        if (file.name.toLowerCase().endsWith('.pdf')) {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const content = await page.getTextContent();
-                const pageText = content.items.map(item => item.str).join(' ');
-                text += `\n--- Page ${i} ---\n` + pageText;
+        // Try fetching pre-extracted OCR text from cache folder first (GitHub Pages compatible)
+        try {
+            const cacheRes = await fetch(`./cache/${encodeURIComponent(file.name)}.txt`);
+            if (cacheRes.ok) {
+                text = await cacheRes.text();
+                console.log('Loaded text from cache successfully:', file.name);
             }
-        } else {
-            text = await file.text();
+        } catch (cacheErr) {
+            console.warn('Cache fetch failed, falling back to browser parsing:', cacheErr);
+        }
+
+        // Fallback to client-side PDF.js parsing if no cache text was found
+        if (!text) {
+            if (file.name.toLowerCase().endsWith('.pdf')) {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const content = await page.getTextContent();
+                    const pageText = content.items.map(item => item.str).join(' ');
+                    text += `\n--- Page ${i} ---\n` + pageText;
+                }
+            } else {
+                text = await file.text();
+            }
         }
 
         state.uploadedText = text;
