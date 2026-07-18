@@ -490,27 +490,27 @@ function getInitialGreeting() {
     displayHr = displayHr ? displayHr : 12;
     
     const timeStr = `${displayHr}:${mins} ${ampm}`;
-    return `${greet} [Time: ${timeStr}]<br>Kis part par tagging karni hai batao.`;
+    return `${greet} <span style="color: #ffd166; font-weight: 500;">Time: ${timeStr}</span><br>Kis part par tagging karni hai batao.`;
 }
 
 function addChatBubble(sender, text) {
     const container = document.createElement('div');
     container.className = `chat-bubble-container ${sender}-container`;
     
-    const label = document.createElement('div');
-    label.className = 'chat-bubble-label';
-    label.textContent = sender === 'user' ? 'Ritesh:' : 'Program:';
-    
     const b = document.createElement('div');
     b.className = `chat-bubble ${sender}-bubble`;
     
+    // Create label span: Yellow for Program, Light Green for Ritesh
+    const labelText = sender === 'user' ? 'Ritesh: ' : 'Program: ';
+    const labelColor = sender === 'user' ? '#81c784' : '#ffd166'; // Light Green (#81c784) and Yellow/Gold (#ffd166)
+    const labelSpan = `<span style="color: ${labelColor}; font-weight: bold; margin-right: 5px;">${labelText}</span>`;
+    
     if (sender === 'user') {
-        b.textContent = text;
+        b.innerHTML = labelSpan + esc(text);
     } else {
-        b.innerHTML = text;
+        b.innerHTML = labelSpan + text;
     }
     
-    container.appendChild(label);
     container.appendChild(b);
     chatMessages.appendChild(container);
     chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -522,12 +522,12 @@ function resetChat() {
     state.analysisReady = false;
     
     const greetMsg = getInitialGreeting();
+    const labelSpan = `<span style="color: #ffd166; font-weight: bold; margin-right: 5px;">Program: </span>`;
     
     chatMessages.innerHTML = `
       <div class="chat-bubble-container ai-container">
-        <div class="chat-bubble-label">Program:</div>
         <div class="chat-bubble ai-bubble">
-          ${greetMsg}
+          ${labelSpan}${greetMsg}
         </div>
       </div>`;
     chatInput.disabled = false;
