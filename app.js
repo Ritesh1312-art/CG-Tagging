@@ -436,20 +436,35 @@ function setAnalyzeBtnLabel(txt) {
 
 // Client-side deep analysis (just verifies state and launches chat)
 analyzeBtn.addEventListener('click', async () => {
-    if (state.analysisReady) return;
-    
-    showLoading(true, '🧠 Verifying files and starting audit...');
-    // Simulate short delay to verify client-side setup
-    setTimeout(() => {
-        resultsPlaceholder.textContent = 'Analyse done';
-        resultsPlaceholder.style.display = 'block';
-        resultsContainer.style.display = 'none';
-        state.analysisReady = true;
+    try {
+        console.log('Analyze button clicked. Current state:', state);
+        if (state.analysisReady) {
+            console.log('Analysis is already ready.');
+            return;
+        }
         
-        showLoading(false);
-        enableChat();
-        addChatBubble('ai', 'Analyse done! Main ready hoon. Aap niche chat box me points ya activities likhein jinhe verify/tag karna hai.');
-    }, 800);
+        showLoading(true, '🧠 Verifying files and starting audit...');
+        // Simulate short delay to verify client-side setup
+        setTimeout(() => {
+            try {
+                resultsPlaceholder.textContent = 'Analyse done';
+                resultsPlaceholder.style.display = 'block';
+                resultsContainer.style.display = 'none';
+                state.analysisReady = true;
+                
+                showLoading(false);
+                enableChat();
+                addChatBubble('ai', 'Analyse done! Main ready hoon. Aap niche chat box me points ya activities likhein jinhe verify/tag karna hai.');
+                console.log('Analysis setup complete.');
+            } catch (innerErr) {
+                console.error('Error inside analyze setTimeout:', innerErr);
+                alert('Analyze setup failed: ' + innerErr.message);
+            }
+        }, 800);
+    } catch (err) {
+        console.error('Error in analyze click:', err);
+        alert('Analyze click failed: ' + err.message);
+    }
 });
 
 // ─── CHAT FLOW ───────────────────────────────────────────────────────────────
