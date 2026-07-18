@@ -471,7 +471,7 @@ analyzeBtn.addEventListener('click', async () => {
 function enableChat() {
     chatInput.disabled = false;
     chatSendBtn.disabled = false;
-    chatInput.placeholder = 'Batao kahan tagging chahiye... (e.g. "Page 107 aur 108 ke tasks tag karo")';
+    chatInput.placeholder = 'Kuch bhi puchiye ya file analyze karte hue tag kariye...';
     chatInput.focus();
 }
 
@@ -530,9 +530,9 @@ function resetChat() {
           ${greetMsg}
         </div>
       </div>`;
-    chatInput.disabled = true;
-    chatSendBtn.disabled = true;
-    chatInput.placeholder = 'Pehle file analyze karein...';
+    chatInput.disabled = false;
+    chatSendBtn.disabled = false;
+    chatInput.placeholder = 'Kuch bhi puchiye ya file analyze karte hue tag kariye...';
     analyzeBtn.textContent = '🔍 Analyze All Files & Start Chat';
     analyzeBtn.disabled = true;
     resultsPlaceholder.style.display = 'block';
