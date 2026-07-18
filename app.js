@@ -454,7 +454,7 @@ analyzeBtn.addEventListener('click', async () => {
                 
                 showLoading(false);
                 enableChat();
-                addChatBubble('ai', 'Analyse done! Main ready hoon. Aap niche chat box me points ya activities likhein jinhe verify/tag karna hai.');
+                addChatBubble('ai', 'Analyse completed! Ab aap niche chat box me specific page number, section ya activities likhein jinhe verify/tag karna hai.');
                 console.log('Analysis setup complete.');
             } catch (innerErr) {
                 console.error('Error inside analyze setTimeout:', innerErr);
@@ -475,15 +475,59 @@ function enableChat() {
     chatInput.focus();
 }
 
+function getInitialGreeting() {
+    const now = new Date();
+    const hrs = now.getHours();
+    let greet = "Good evening!";
+    if (hrs < 12) greet = "Good morning!";
+    else if (hrs < 16) greet = "Good afternoon!";
+    
+    // Format time: HH:MM AM/PM
+    let mins = now.getMinutes();
+    if (mins < 10) mins = "0" + mins;
+    let ampm = hrs >= 12 ? 'PM' : 'AM';
+    let displayHr = hrs % 12;
+    displayHr = displayHr ? displayHr : 12;
+    
+    const timeStr = `${displayHr}:${mins} ${ampm}`;
+    return `${greet} [Time: ${timeStr}]<br>Kis part par tagging karni hai batao.`;
+}
+
+function addChatBubble(sender, text) {
+    const container = document.createElement('div');
+    container.className = `chat-bubble-container ${sender}-container`;
+    
+    const label = document.createElement('div');
+    label.className = 'chat-bubble-label';
+    label.textContent = sender === 'user' ? 'Ritesh:' : 'Program:';
+    
+    const b = document.createElement('div');
+    b.className = `chat-bubble ${sender}-bubble`;
+    
+    if (sender === 'user') {
+        b.textContent = text;
+    } else {
+        b.innerHTML = text;
+    }
+    
+    container.appendChild(label);
+    container.appendChild(b);
+    chatMessages.appendChild(container);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return container;
+}
+
 function resetChat() {
     state.chatHistory = [];
     state.analysisReady = false;
+    
+    const greetMsg = getInitialGreeting();
+    
     chatMessages.innerHTML = `
       <div class="chat-bubble-container ai-container">
-        <div class="chat-bubble-label">NCF Auditor 🤖</div>
+        <div class="chat-bubble-label">Program:</div>
         <div class="chat-bubble ai-bubble">
-          Namaskar! 👋 CG File select karein, aur Chapter PDF upload karein.
-          Phir "Analyze" button dabayein — main teeno files ko deeply analyze karke aapko activity list deta hoon.
+          ${greetMsg}
         </div>
       </div>`;
     chatInput.disabled = true;
