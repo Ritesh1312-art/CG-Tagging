@@ -588,18 +588,18 @@ ${state.uploadedText.slice(0, 40000)}
 AUDIT PROCESS & RULES:
 1. Examine the activity requested by the teacher. Check the student's actual required action.
 2. Read the CHAPTER TEXT carefully. Do not choose randomly. Focus on what students actually do in the activity.
-3. First, write down a detailed, step-by-step thinking process (Chain of Thought) in Hindi in your output text:
+3. First, write down a detailed, step-by-step thinking process (Chain of Thought) in Hinglish in your output text:
    - Identify which page/section of the chapter PDF this activity is on.
    - Summarize the exact action/task required of the student.
    - Walk through the REFERENCE CURRICULUM and determine the single best-fit official competency (from C-1.1 to C-5.3). Compare it with other options to explain why it fits best.
    - Walk through the 12 OFFICIAL 21ST CENTURY SKILLS and choose the best-fit skill based on student actions.
    - Find if there is any printed tag (e.g. "CG:2, C:2.2") in the activity text.
    - Conduct the audit comparison: is the printed tag Correct, Partially Correct, Incorrect, Unsupported, or Missing? Why?
-4. Make sure you write this step-by-step reasoning clearly in Hindi/Hinglish in your response first. This is crucial for accuracy.
+4. Make sure you write this step-by-step reasoning clearly in HINGLISH (Hindi written in Roman/English script like: "Is activity me student ko group work karna hai, isliye...") in your response first. This is crucial for accuracy.
 5. After your step-by-step reasoning, output the structured JSON block wrapped exactly in <<<JSON>>> and <<<END>>>.
 
 TAGGING OUTPUT JSON FORMAT:
-[Detailed step-by-step audit reasoning in Hindi]
+[Detailed step-by-step audit reasoning in Hinglish]
 
 <<<JSON>>>
 {
@@ -614,13 +614,13 @@ TAGGING OUTPUT JSON FORMAT:
       "printedCompetency": "Textbook printed competency (e.g. CG:2, C:2.2 or None)",
       "printedSkill": "Textbook printed skill name (e.g. Critical Thinking or None)",
       "auditStatus": "Correct / Partially Correct / Incorrect / Unsupported / Missing",
-      "explanation": "Hindi mein explanation: student ne actual mein kya action perform kiya, isliye official competency aur skill ye aayi, aur textbook ke printed tags wrong/correct kyun hai."
+      "explanation": "Hinglish mein explanation: student ne actual mein kya action perform kiya, isliye official competency aur skill ye aayi, aur textbook ke printed tags wrong/correct kyun hai."
     }
   ]
 }
 <<<END>>>
 
-If the teacher asks a general question, respond normally without the JSON block.`;
+If the teacher asks a general question, respond normally without the JSON block. You MUST talk strictly in HINGLISH (Hindi written in Roman/English script). Do NOT speak in pure English or Devnagari Hindi. Write everything in a friendly, conversational Hinglish tone (e.g., "Hanji, batayein kaun si class ka audit karna hai?", "Mujhe chapter text mil gaya hai, verify karne ke liye chat box me input dein.").`;
 
         // Direct fetch to Pollinations AI
         const response = await fetch('https://text.pollinations.ai/', {
