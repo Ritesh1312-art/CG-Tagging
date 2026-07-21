@@ -8,10 +8,12 @@ Add-Type -AssemblyName System.Drawing
 $ext = [System.IO.Path]::GetExtension($filePath).ToLower()
 
 if ($ext -eq ".pdf") {
-    $word = New-Object -ComObject Word.Application
-    $word.Visible = $false
-    $word.DisplayAlerts = 0
+    # Try Word COM if installed, safely destroying process
+    $word = $null
     try {
+        $word = New-Object -ComObject Word.Application -ErrorAction Stop
+        $word.Visible = $false
+        $word.DisplayAlerts = 0
         $doc = $word.Documents.Open($filePath, $false, $true)
         $text = $doc.Content.Text
         $text | Out-File -FilePath $outPath -Encoding utf8
@@ -22,7 +24,10 @@ if ($ext -eq ".pdf") {
         Write-Error $_.Exception.Message
     }
     finally {
-        if ($word) { $word.Quit() }
+        if ($word) {
+            $word.Quit()
+            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
+        }
         [System.GC]::Collect()
         [System.GC]::WaitForPendingFinalizers()
     }

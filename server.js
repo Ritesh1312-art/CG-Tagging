@@ -2,7 +2,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
-const { execFile, exec } = require('child_process');
+const { execFile } = require('child_process');
 
 const PORT = process.env.PORT || 3000;
 const BASE_DIR = __dirname;
@@ -17,36 +17,56 @@ const IS_WINDOWS = process.platform === 'win32';
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
+// Cache Tesseract worker to avoid downloading traineddata on every request
+let tesseractWorkerPromise = null;
+async function getTesseractWorker() {
+    if (!tesseractWorkerPromise) {
+        const { createWorker } = require('tesseract.js');
+        tesseractWorkerPromise = createWorker(['eng', 'hin'], 1, { logger: () => {} });
+    }
+    return await tesseractWorkerPromise;
+}
+
 // ─── TEXT EXTRACTION ─────────────────────────────────────────────────────────
-// Tries JS libraries first (cloud), falls back to PowerShell on Windows (local)
 async function extractText(filePath, cachePath) {
     const ext = path.extname(filePath).toLowerCase();
 
-    // Try JS-based extraction (works on cloud after npm install)
+    // 1. Text files (.txt)
+    if (ext === '.txt') {
+        const text = fs.readFileSync(filePath, 'utf8');
+        fs.writeFileSync(cachePath, text, 'utf8');
+        return text;
+    }
+
+    // 2. Try JS-based extraction (works locally & on cloud)
     try {
         if (ext === '.pdf') {
             const pdfParse = require('pdf-parse');
             const buf = fs.readFileSync(filePath);
             const data = await pdfParse(buf);
-            fs.writeFileSync(cachePath, data.text || '', 'utf8');
-            return data.text || '';
+            const extracted = data.text || '';
+            fs.writeFileSync(cachePath, extracted, 'utf8');
+            return extracted;
         }
         if (['.jpg', '.jpeg', '.png'].includes(ext)) {
-            const { createWorker } = require('tesseract.js');
-            const worker = await createWorker(['eng', 'hin'], 1, { logger: () => {} });
+            const worker = await getTesseractWorker();
             const { data: { text } } = await worker.recognize(filePath);
-            await worker.terminate();
             fs.writeFileSync(cachePath, text || '', 'utf8');
             return text || '';
         }
     } catch (moduleErr) {
-        // JS libraries not installed — fall back to Windows PowerShell
+        console.warn(`JS extraction failed: ${moduleErr.message}. Checking fallbacks...`);
         if (IS_WINDOWS) {
-            console.log(`JS extraction unavailable, using PowerShell fallback: ${moduleErr.message}`);
             return await extractTextPowerShell(filePath, cachePath);
         }
         throw moduleErr;
     }
+
+    // Fallback on Windows if JS module missing
+    if (IS_WINDOWS) {
+        return await extractTextPowerShell(filePath, cachePath);
+    }
+
     throw new Error(`Unsupported file type: ${ext}`);
 }
 
@@ -61,7 +81,7 @@ function extractTextPowerShell(filePath, cachePath) {
             '-outPath', cachePath
         ], (error, stdout, stderr) => {
             if (error || (stderr && stderr.trim())) {
-                return reject(new Error(stderr || error.message));
+                return reject(new Error(stderr || error?.message || 'PowerShell extraction error'));
             }
             const text = fs.existsSync(cachePath) ? fs.readFileSync(cachePath, 'utf8') : '';
             resolve(text);
@@ -69,12 +89,11 @@ function extractTextPowerShell(filePath, cachePath) {
     });
 }
 
-// ─── AI CALL via Pollinations (free, no API key, web scraping) ───────────────
+// ─── AI CALL via Pollinations ────────────────────────────────────────────────
 function queryAI(messages, jsonMode = false) {
     const payload = JSON.stringify({ messages, model: 'openai', jsonMode });
 
     return new Promise((resolve, reject) => {
-        // Use https module (correct for https:// URLs)
         const req = https.request({
             hostname: 'text.pollinations.ai',
             path: '/',
@@ -108,7 +127,13 @@ function parseBody(req) {
 
 function jsonRes(res, data, code = 200) {
     const body = JSON.stringify(data);
-    res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.writeHead(code, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': '*'
+    });
     res.end(body);
 }
 
@@ -126,7 +151,6 @@ function updateTracker(filename, activities) {
     }
     if (!tracker.chapters) tracker.chapters = {};
     
-    // Merge activities by activityName
     if (!tracker.chapters[filename]) {
         tracker.chapters[filename] = [];
     }
@@ -148,7 +172,12 @@ const server = http.createServer(async (req, res) => {
     res.setHeader('Access-Control-Allow-Headers', '*');
     if (req.method === 'OPTIONS') { res.writeHead(200); res.end(); return; }
 
-    const pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
+    let pathname = '/';
+    try {
+        pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
+    } catch (e) {
+        pathname = req.url || '/';
+    }
 
     // GET /api/list-core — stage → files structure
     if (pathname === '/api/list-core' && req.method === 'GET') {
@@ -282,12 +311,11 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // POST /api/deep-analyze — load files, extract text, return simple status
+    // POST /api/deep-analyze — load files, extract text
     if (pathname === '/api/deep-analyze' && req.method === 'POST') {
         try {
             const { coreFileRelativePath, uploadedText, uploadedFilename } = JSON.parse((await parseBody(req)).toString());
 
-            // Load CG file text (if any)
             let coreText = '';
             if (coreFileRelativePath) {
                 const coreAbs = path.join(CORE_DIR, coreFileRelativePath);
@@ -299,25 +327,7 @@ const server = http.createServer(async (req, res) => {
                 coreText = fs.existsSync(coreCache) ? fs.readFileSync(coreCache, 'utf8') : '';
             }
 
-            // Load fixed 21st Century Skills text (if any)
-            let fixedText = '';
-            if (fs.existsSync(FIXED_DIR)) {
-                const fixedFiles = fs.readdirSync(FIXED_DIR).filter(f => /\.(pdf|txt)$/i.test(f));
-                if (fixedFiles.length > 0) {
-                    const fixedAbs = path.join(FIXED_DIR, fixedFiles[0]);
-                    const fixedCache = path.join(CACHE_DIR, fixedFiles[0] + '.txt');
-                    if (!fs.existsSync(fixedCache)) {
-                        console.log(`Extracting fixed: ${fixedFiles[0]}`);
-                        await extractText(fixedAbs, fixedCache);
-                    }
-                    fixedText = fs.existsSync(fixedCache) ? fs.readFileSync(fixedCache, 'utf8') : '';
-                }
-            }
-
-            // uploadedText is already extracted during upload
             const chapterText = uploadedText || '';
-
-            // Skip AI activity extraction to avoid rate limits – return empty list
             const activitiesArray = [];
             return jsonRes(res, { status: 'Analyse done', activities: activitiesArray });
 
@@ -332,17 +342,10 @@ const server = http.createServer(async (req, res) => {
         try {
             const { history, message, context } = JSON.parse((await parseBody(req)).toString());
 
-            // Load text files from cache for full context
             let coreText = '';
-            if (context.coreFileRelativePath) {
+            if (context?.coreFileRelativePath) {
                 const coreCache = path.join(CACHE_DIR, path.basename(context.coreFileRelativePath) + '.txt');
                 if (fs.existsSync(coreCache)) coreText = fs.readFileSync(coreCache, 'utf8');
-            }
-            let fixedText = '';
-            const fixedFiles = fs.existsSync(FIXED_DIR) ? fs.readdirSync(FIXED_DIR).filter(f => /\.(pdf|txt)$/i.test(f)) : [];
-            if (fixedFiles.length > 0) {
-                const fixedCache = path.join(CACHE_DIR, fixedFiles[0] + '.txt');
-                if (fs.existsSync(fixedCache)) fixedText = fs.readFileSync(fixedCache, 'utf8');
             }
 
             const systemPrompt = `You are the Expert Academic Auditor for a Class 7 English textbook.
@@ -350,7 +353,7 @@ Your task is to examine textbook activities and perform NCF curriculum tagging a
 
 REFERENCE CURRICULUM (English Middle Stage Competencies):
 """
-${coreText.slice(0, 50000)}
+${coreText.slice(0, 15000)}
 """
 
 OFFICIAL 21ST CENTURY SKILLS LIST & DEFINITIONS:
@@ -370,7 +373,7 @@ Use ONLY these exact skill names:
 
 CHAPTER / ACTIVITY TEXT TO AUDIT:
 """
-${(context.uploadedText || '').slice(0, 40000)}
+${(context?.uploadedText || '').slice(0, 20000)}
 """
 
 AUDIT PROCESS & RULES:
@@ -419,7 +422,6 @@ If the teacher asks a general question, respond normally without the JSON block.
             console.log('AI Chat:', message.slice(0, 80));
             const reply = await queryAI(messages, false);
 
-            // Extract JSON from reply if present
             const jsonMatch = reply.match(/<<<JSON>>>([\s\S]*?)<<<END>>>/);
             let taggingData = null;
             let cleanReply = reply;
@@ -427,10 +429,7 @@ If the teacher asks a general question, respond normally without the JSON block.
             if (jsonMatch) {
                 try {
                     taggingData = JSON.parse(jsonMatch[1].trim());
-                    // Remove JSON block from displayed reply and override with short status to avoid chat clutter
                     cleanReply = "Done! Working Area mein details update ho gayi hain. Ab aur kahan tagging karani hai?";
-                    
-                    // Update the cumulative tracker on server
                     if (taggingData.activities && taggingData.activities.length > 0) {
                         updateTracker(context.uploadedFilename, taggingData.activities);
                     }
@@ -439,9 +438,7 @@ If the teacher asks a general question, respond normally without the JSON block.
                 }
             }
 
-            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-            res.end(JSON.stringify({ reply: cleanReply, taggingData }));
-            return;
+            return jsonRes(res, { reply: cleanReply, taggingData });
 
         } catch (e) {
             console.error('Chat error:', e.message);
@@ -449,17 +446,36 @@ If the teacher asks a general question, respond normally without the JSON block.
         }
     }
 
-
-
-
-    // Static file serving
+    // Static file serving with Path Traversal Protection
     const mimes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg' };
-    const filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
+    
+    // Sanitize pathname to prevent directory traversal
+    const safePath = path.normalize(pathname).replace(/^(\.\.[\/\\])+/, '');
+    let filePath = path.join(PUBLIC_DIR, safePath === '/' ? 'index.html' : safePath);
+    if (!fs.existsSync(filePath)) {
+        filePath = path.join(BASE_DIR, safePath === '/' ? 'index.html' : safePath);
+    }
+
+    // Check that target path is within project root
+    if (!filePath.startsWith(BASE_DIR)) {
+        res.writeHead(403);
+        res.end('403 Forbidden');
+        return;
+    }
+
     fs.readFile(filePath, (err, content) => {
-        if (err) { res.writeHead(err.code === 'ENOENT' ? 404 : 500); res.end(err.code === 'ENOENT' ? '404 Not Found' : 'Server Error'); return; }
-        res.writeHead(200, { 'Content-Type': mimes[path.extname(filePath).toLowerCase()] || 'text/plain', 'Cache-Control': 'no-store' });
+        if (err) {
+            res.writeHead(err.code === 'ENOENT' ? 404 : 500);
+            res.end(err.code === 'ENOENT' ? '404 Not Found' : 'Server Error');
+            return;
+        }
+        res.writeHead(200, {
+            'Content-Type': mimes[path.extname(filePath).toLowerCase()] || 'text/plain',
+            'Cache-Control': 'no-store',
+            'Access-Control-Allow-Origin': '*'
+        });
         res.end(content);
     });
 });
 
-server.listen(PORT, () => console.log(`NCF Tagging Engine → http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`🚀 NCF Tagging Engine running on http://localhost:${PORT}`));
