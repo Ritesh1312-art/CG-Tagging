@@ -1,4 +1,4 @@
-// CG Tagging Tool — Refactored Frontend v40 (All Output Rendered Directly in Chat)
+// CG Tagging Tool — Complete Refactored Frontend v45 (Dropdown Fix & Direct Chat Rendering)
 
 if (typeof pdfjsLib !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
@@ -38,11 +38,14 @@ function safeGetStorage(key) {
 
 const STAGES_CONFIG = {
     "01. Foundational": ["F.CG.pdf"],
-    "02. Preparatory": ["Art P.CG.pdf", "EVS P.CG.pdf", "English P.CG.pdf", "Hindi P.CG.pdf", "Maths P.CG.pdf", "SST P.CG.pdf", "Science P.CG.pdf"],
-    "03. Middle": ["ART M.CG.pdf", "English M.CG.pdf", "Hindi M.CG.pdf", "Maths M.CG.pdf", "SST M.CG.pdf", "Sanskrit M.CG.pdf", "Science M.CG.pdf"]
+    "Foundational": ["F.CG.pdf"],
+    "02. Preparatory": ["English P.CG.pdf", "Hindi P.CG.pdf", "Maths P.CG.pdf", "EVS P.CG.pdf", "SST P.CG.pdf", "Science P.CG.pdf", "Art P.CG.pdf"],
+    "Preparatory": ["English P.CG.pdf", "Hindi P.CG.pdf", "Maths P.CG.pdf", "EVS P.CG.pdf", "SST P.CG.pdf", "Science P.CG.pdf", "Art P.CG.pdf"],
+    "03. Middle": ["English M.CG.pdf", "Hindi M.CG.pdf", "Maths M.CG.pdf", "Science M.CG.pdf", "SST M.CG.pdf", "Sanskrit M.CG.pdf", "ART M.CG.pdf"],
+    "Middle": ["English M.CG.pdf", "Hindi M.CG.pdf", "Maths M.CG.pdf", "Science M.CG.pdf", "SST M.CG.pdf", "Sanskrit M.CG.pdf", "ART M.CG.pdf"]
 };
 
-// Initial Pre-populated Data for Chapters 11 & 12
+// Pre-populated Tracker Data for Chapters 11 & 12
 const INITIAL_TRACKER_DATA = {
   "chapters": {
     "11.pdf": [
@@ -113,8 +116,8 @@ const INITIAL_TRACKER_DATA = {
 };
 
 let state = {
-    selectedStage: '',
-    selectedCoreFile: '',
+    selectedStage: '03. Middle',
+    selectedCoreFile: 'English M.CG.pdf',
     uploadedText: '',
     uploadedFilename: '',
     chatHistory: [],
@@ -123,7 +126,7 @@ let state = {
 };
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
-loadStages();
+initDropdowns();
 loadFixedSkills();
 
 function esc(str) { return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])); }
@@ -138,67 +141,53 @@ function formatMarkdown(text) {
     return html;
 }
 
-// Stage Dropdown Populator (Ensures Stage Select is NEVER blank)
-function loadStages() {
-    if (!stageSelect) return;
-    stageSelect.innerHTML = '<option value="">-- Select Stage --</option>';
-    Object.keys(STAGES_CONFIG).forEach(stg => {
-        const opt = document.createElement('option');
-        opt.value = stg;
-        opt.textContent = stg;
-        stageSelect.appendChild(opt);
-    });
-}
-
-// Run loadStages on DOM ready as well
-document.addEventListener('DOMContentLoaded', loadStages);
-
-if (refreshCoreBtn) {
-    refreshCoreBtn.addEventListener('click', () => {
-        loadStages();
-        alert('Stage & Core files refreshed!');
-    });
-}
-
-if (stageSelect) {
+function initDropdowns() {
+    if (!stageSelect || !coreSelect) return;
+    
+    // Ensure initial state from DOM
+    if (stageSelect.value) state.selectedStage = stageSelect.value;
+    if (coreSelect.value) state.selectedCoreFile = coreSelect.value;
+    
     stageSelect.addEventListener('change', (e) => {
         const val = e.target.value;
         state.selectedStage = val;
-        coreSelect.innerHTML = '';
+        coreSelect.innerHTML = '<option value="">-- Select Subject CG File --</option>';
         coreSelect.disabled = !val;
 
         if (!val) {
-            coreSelect.innerHTML = '<option value="">-- First select a Stage --</option>';
             checkReady();
             return;
         }
 
-        coreSelect.innerHTML = '<option value="">-- Select Subject CG File --</option>';
-        (STAGES_CONFIG[val] || []).forEach(file => {
+        const files = STAGES_CONFIG[val] || STAGES_CONFIG[val.replace(/^\d+\.\s*/, '')] || [];
+        files.forEach((file, idx) => {
             const opt = document.createElement('option');
             opt.value = file;
             opt.textContent = file;
+            if (idx === 0) opt.selected = true;
             coreSelect.appendChild(opt);
         });
+
+        if (files.length > 0) {
+            state.selectedCoreFile = files[0];
+        } else {
+            state.selectedCoreFile = '';
+        }
+        checkReady();
+    });
+
+    coreSelect.addEventListener('change', (e) => {
+        state.selectedCoreFile = e.target.value;
         checkReady();
     });
 }
 
-if (coreSelect) {
-    coreSelect.addEventListener('change', async (e) => {
-        state.selectedCoreFile = e.target.value;
-        if (state.selectedCoreFile) {
-            showLoading(true, '📚 Loading curriculum text...');
-            try {
-                const res = await fetch(`./cache/${encodeURIComponent(state.selectedCoreFile)}.txt`);
-                if (res.ok) state.coreTextCache = await res.text();
-            } catch (err) {} finally {
-                showLoading(false);
-            }
-        } else {
-            state.coreTextCache = '';
+if (refreshCoreBtn) {
+    refreshCoreBtn.addEventListener('click', () => {
+        if (stageSelect && stageSelect.value) {
+            stageSelect.dispatchEvent(new Event('change'));
         }
-        checkReady();
+        alert('Stage & Core files refreshed!');
     });
 }
 
@@ -362,10 +351,8 @@ if (analyzeBtn) {
             enableChat(true);
             showLoading(false);
             
-            // Post main summary in chat
             addChatBubble('ai', `✅ **${state.uploadedFilename}** file ka complete **9-Step Evidence-Based NCF Audit** ho gaya hai!\n\n📊 **Total ${activities.length} Activities Audited.** Inke detailed Audit Tag Cards niche chat mein render kar diye gaye hain:`);
             
-            // Render each activity audit card directly inside the chat view
             activities.forEach(act => {
                 const cardHTML = `
                 <div class="inchat-audit-card">
@@ -440,7 +427,6 @@ function addChatBubble(sender, text) {
     const body = document.createElement('div');
     body.className = 'chat-body';
     
-    // Check if text is HTML card string or markdown
     if (text.includes('<div class="inchat-audit-card">')) {
         body.innerHTML = text;
     } else {

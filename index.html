@@ -34,7 +34,7 @@
             <section class="panel control-panel">
                 <h2>1. Inputs & Configuration</h2>
                 
-                <!-- Dropdown 1: Select Stage (Pre-populated to NEVER be blank) -->
+                <!-- Dropdown 1: Select Stage (Pre-populated) -->
                 <div class="input-group">
                     <label for="stage-select">Select Stage</label>
                     <div class="select-wrapper">
@@ -42,17 +42,24 @@
                             <option value="">-- Select Stage --</option>
                             <option value="01. Foundational">01. Foundational</option>
                             <option value="02. Preparatory">02. Preparatory</option>
-                            <option value="03. Middle">03. Middle</option>
+                            <option value="03. Middle" selected>03. Middle</option>
                         </select>
                         <button id="refresh-core-btn" title="Refresh files list">🔄</button>
                     </div>
                 </div>
 
-                <!-- Dropdown 2: Select Subject CG File -->
+                <!-- Dropdown 2: Select Subject CG File (Pre-populated) -->
                 <div class="input-group">
                     <label for="core-select">Select Subject CG File</label>
-                    <select id="core-select" disabled>
-                        <option value="">-- First select a Stage --</option>
+                    <select id="core-select">
+                        <option value="">-- Select Subject CG File --</option>
+                        <option value="English M.CG.pdf" selected>English M.CG.pdf</option>
+                        <option value="Hindi M.CG.pdf">Hindi M.CG.pdf</option>
+                        <option value="Maths M.CG.pdf">Maths M.CG.pdf</option>
+                        <option value="Science M.CG.pdf">Science M.CG.pdf</option>
+                        <option value="SST M.CG.pdf">SST M.CG.pdf</option>
+                        <option value="Sanskrit M.CG.pdf">Sanskrit M.CG.pdf</option>
+                        <option value="ART M.CG.pdf">ART M.CG.pdf</option>
                     </select>
                 </div>
 
@@ -106,7 +113,7 @@
                                 <br><br>
                                 📋 <strong>How to start:</strong>
                                 <ol style="margin-left: 20px; margin-top: 6px;">
-                                    <li>Left side se <strong>Stage</strong> (e.g. <code>03. Middle</code>) aur <strong>Subject CG File</strong> select karein.</li>
+                                    <li>Stage aur Subject CG File pre-selected hain (e.g. <code>03. Middle</code> & <code>English M.CG.pdf</code>).</li>
                                     <li>Apni <strong>Chapter PDF</strong> upload karke <strong>"🔍 Analyze Chapter PDF & Tag Activities"</strong> dabayein.</li>
                                     <li>Poore chapter ki saari activities ke <strong>Complete NCF Audit Tag Cards</strong> directly is chat window mein aayenge!</li>
                                 </ol>
@@ -136,6 +143,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=40"></script>
+    <script src="app.js?v=45"></script>
 </body>
 </html>
