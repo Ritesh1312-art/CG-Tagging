@@ -31,14 +31,12 @@ async function getTesseractWorker() {
 async function extractText(filePath, cachePath) {
     const ext = path.extname(filePath).toLowerCase();
 
-    // 1. Text files (.txt)
     if (ext === '.txt') {
         const text = fs.readFileSync(filePath, 'utf8');
         fs.writeFileSync(cachePath, text, 'utf8');
         return text;
     }
 
-    // 2. Try JS-based extraction (works locally & on cloud)
     try {
         if (ext === '.pdf') {
             const pdfParse = require('pdf-parse');
@@ -62,7 +60,6 @@ async function extractText(filePath, cachePath) {
         throw moduleErr;
     }
 
-    // Fallback on Windows if JS module missing
     if (IS_WINDOWS) {
         return await extractTextPowerShell(filePath, cachePath);
     }
@@ -70,7 +67,6 @@ async function extractText(filePath, cachePath) {
     throw new Error(`Unsupported file type: ${ext}`);
 }
 
-// PowerShell fallback (local Windows only)
 function extractTextPowerShell(filePath, cachePath) {
     return new Promise((resolve, reject) => {
         const psScript = path.join(BASE_DIR, 'extract_text.ps1');
@@ -137,7 +133,6 @@ function jsonRes(res, data, code = 200) {
     res.end(body);
 }
 
-// Helper to update cumulative tracker
 function updateTracker(filename, activities) {
     if (!filename) return;
     const trackerPath = path.join(CACHE_DIR, 'tracker.json');
@@ -224,21 +219,21 @@ const server = http.createServer(async (req, res) => {
             const auditedChapters = Object.keys(tracker.chapters || {});
             
             const allCompetencies = [
-                { code: "1.1", desc: "C-1.1: Identifies main points and summarises from a careful listening or reading of the text" },
-                { code: "1.2", desc: "C-1.2: Listens to, plans, and conducts different kinds of interviews (structured and unstructured)" },
-                { code: "1.3", desc: "C-1.3: Raises probing questions about social experiences using appropriate language" },
-                { code: "1.4", desc: "C-1.4: Writes different kinds of letters, essays, and reports using appropriate style and registers" },
-                { code: "1.5", desc: "C-1.5: Creates content for audio, visual, or both, for different audiences and purposes" },
-                { code: "2.1", desc: "C-2.1: Identifies and appreciates different forms of literature and styles of writing" },
-                { code: "2.2", desc: "C-2.2: Identifies literary devices by reading a variety of literature and uses them in writing" },
-                { code: "2.3", desc: "C-2.3: Expresses through speech and writing their ideas and critiques on social/cultural surroundings" },
-                { code: "3.1", desc: "C-3.1: Interprets and understands basic linguistic aspects (rules) and applies them while writing" },
-                { code: "3.2", desc: "C-3.2: Writes prose, poetry, and drama using appropriate style and language" },
-                { code: "4.1", desc: "C-4.1: Reads, responds to, and critically reviews books of varied genres" },
-                { code: "4.2", desc: "C-4.2: Uses books and other media resources effectively to find references to use in projects" },
-                { code: "5.1", desc: "C-5.1: Understands the phonetics and script of the language, and how they interact" },
-                { code: "5.2", desc: "C-5.2: Engages in the use of puns, rhymes, alliteration, and other wordplays" },
-                { code: "5.3", desc: "C-5.3: Becomes familiar with some of the major word games in the language" }
+                { code: "1.1", desc: "C-1.1: Identifies main points and summarises text" },
+                { code: "1.2", desc: "C-1.2: Listens to, plans, and conducts interviews" },
+                { code: "1.3", desc: "C-1.3: Raises probing questions about social experiences" },
+                { code: "1.4", desc: "C-1.4: Writes letters, essays, and reports" },
+                { code: "1.5", desc: "C-1.5: Creates content for audio/visual media" },
+                { code: "2.1", desc: "C-2.1: Identifies and appreciates literature" },
+                { code: "2.2", desc: "C-2.2: Identifies literary devices" },
+                { code: "2.3", desc: "C-2.3: Expresses ideas and critiques on surroundings" },
+                { code: "3.1", desc: "C-3.1: Interprets linguistic rules" },
+                { code: "3.2", desc: "C-3.2: Writes prose, poetry, and drama" },
+                { code: "4.1", desc: "C-4.1: Reads and critically reviews books" },
+                { code: "4.2", desc: "C-4.2: Uses media resources for projects" },
+                { code: "5.1", desc: "C-5.1: Understands phonetics and script" },
+                { code: "5.2", desc: "C-5.2: Engages in wordplays and puns" },
+                { code: "5.3", desc: "C-5.3: Familiar with major word games" }
             ];
             
             const compCoverage = {};
@@ -314,7 +309,7 @@ const server = http.createServer(async (req, res) => {
     // POST /api/deep-analyze — load files, extract text
     if (pathname === '/api/deep-analyze' && req.method === 'POST') {
         try {
-            const { coreFileRelativePath, uploadedText, uploadedFilename } = JSON.parse((await parseBody(req)).toString());
+            const { coreFileRelativePath, uploadedText } = JSON.parse((await parseBody(req)).toString());
 
             let coreText = '';
             if (coreFileRelativePath) {
@@ -327,7 +322,6 @@ const server = http.createServer(async (req, res) => {
                 coreText = fs.existsSync(coreCache) ? fs.readFileSync(coreCache, 'utf8') : '';
             }
 
-            const chapterText = uploadedText || '';
             const activitiesArray = [];
             return jsonRes(res, { status: 'Analyse done', activities: activitiesArray });
 
@@ -337,7 +331,7 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // POST /api/chat — smart interactive chat with tagging capability
+    // POST /api/chat — dual mode interactive chat + tagging
     if (pathname === '/api/chat' && req.method === 'POST') {
         try {
             const { history, message, context } = JSON.parse((await parseBody(req)).toString());
@@ -348,70 +342,41 @@ const server = http.createServer(async (req, res) => {
                 if (fs.existsSync(coreCache)) coreText = fs.readFileSync(coreCache, 'utf8');
             }
 
-            const systemPrompt = `You are the Expert Academic Auditor for a Class 7 English textbook.
-Your task is to examine textbook activities and perform NCF curriculum tagging and audit verification.
+            const systemPrompt = `You are the Expert Academic Auditor & NCF Curriculum Assistant.
+Your task is twofold:
+1. Answer teacher's questions, doubts, general concepts in friendly Hindi/English.
+2. If asked to tag an activity, perform curriculum audit and output the JSON block wrapped in <<<JSON>>> and <<<END>>>.
 
-REFERENCE CURRICULUM (English Middle Stage Competencies):
+REFERENCE CURRICULUM:
 """
 ${coreText.slice(0, 15000)}
 """
 
-OFFICIAL 21ST CENTURY SKILLS LIST & DEFINITIONS:
-Use ONLY these exact skill names:
-1. "Critical Thinking" - Objective analysis of information, reasoning, judging, and problem solving.
-2. "Creativity and Innovation" - Generating new/unique/improved ideas, shifting perspectives, artistic/design innovation.
-3. "Collaboration" - Working effectively and respectfully in diverse teams towards shared goals.
-4. "Communication" - Expressing opinions, needs, and desires clearly (verbally/non-verbally), active listening.
-5. "Information Literacy" - Accessing, critically evaluating, and managing traditional or digital information.
-6. "Media Literacy" - Analyzing the purpose of media messages, interpreting media, utilizing media tools.
-7. "Technology Literacy" - Using digital devices, networks, and software to research and organize.
-8. "Flexibility and Adaptability" - Adapting to new roles, changing priorities, dealing positively with setbacks.
-9. "Leadership and Responsibility" - Guiding/influencing others, managing teamwork, demonstrating civic duty and responsibility.
-10. "Initiative and Self-Direction" - Setting goals, working independently, self-motivation, lifelong learning.
-11. "Productivity and Accountability" - Meeting deadlines, delivering quality results, taking ownership of outcomes.
-12. "Social and Cross-Cultural Interaction" - Communicating and working collaboratively across diverse cultures/backgrounds.
-
-CHAPTER / ACTIVITY TEXT TO AUDIT:
+CHAPTER TEXT:
 """
 ${(context?.uploadedText || '').slice(0, 20000)}
 """
 
-AUDIT PROCESS & RULES:
-1. Examine the activity requested by the teacher. Check the student's actual required action.
-2. Read the CHAPTER TEXT carefully. Do not choose randomly. Focus on what students actually do in the activity.
-3. First, write down a detailed, step-by-step thinking process (Chain of Thought) in Hindi in your output text:
-   - Identify which page/section of the chapter PDF this activity is on.
-   - Summarize the exact action/task required of the student.
-   - Walk through the REFERENCE CURRICULUM and determine the single best-fit official competency (from C-1.1 to C-5.3). Compare it with other options to explain why it fits best.
-   - Walk through the 12 OFFICIAL 21ST CENTURY SKILLS and choose the best-fit skill based on student actions.
-   - Find if there is any printed tag (e.g. "CG:2, C:2.2") in the activity text.
-   - Conduct the audit comparison: is the printed tag Correct, Partially Correct, Incorrect, Unsupported, or Missing? Why?
-4. Make sure you write this step-by-step reasoning clearly in Hindi/Hinglish in your response first. This is crucial for accuracy.
-5. After your step-by-step reasoning, output the structured JSON block wrapped exactly in <<<JSON>>> and <<<END>>>.
-
-TAGGING OUTPUT JSON FORMAT:
-[Detailed step-by-step audit reasoning in Hindi]
-
+TAGGING FORMAT (ONLY IF AUDITING AN ACTIVITY):
+Write step-by-step audit reasoning in Hindi first, then:
 <<<JSON>>>
 {
   "activities": [
     {
-      "pageNumber": "Page number in the PDF (e.g. 105 or N/A)",
-      "activityName": "Exact activity name/title in textbook",
-      "competencyCode": "CG-X, C-X.Y (correct official competency)",
-      "skillName": "Correct 21st Century Skill name (exactly from the list of 12 skills)",
-      "coreCompetencyText": "VERBATIM English sentence of the C-X.Y competency from the CG file",
-      "coreCompetencyHindi": "Hindi translation of the core competency text",
-      "printedCompetency": "Textbook printed competency (e.g. CG:2, C:2.2 or None)",
-      "printedSkill": "Textbook printed skill name (e.g. Critical Thinking or None)",
+      "pageNumber": "105",
+      "activityName": "Title of activity",
+      "competencyCode": "CG-X, C-X.Y",
+      "skillName": "Correct 21st Century Skill",
+      "coreCompetencyText": "English sentence of C-X.Y",
+      "coreCompetencyHindi": "Hindi translation",
+      "printedCompetency": "Printed tag or None",
+      "printedSkill": "Printed skill or None",
       "auditStatus": "Correct / Partially Correct / Incorrect / Unsupported / Missing",
-      "explanation": "Hindi mein explanation: student ne actual mein kya action perform kiya, isliye official competency aur skill ye aayi, aur textbook ke printed tags wrong/correct kyun hai."
+      "explanation": "Hindi explanation"
     }
   ]
 }
-<<<END>>>
-
-If the teacher asks a general question, respond normally without the JSON block.`;
+<<<END>>>`;
 
             const messages = [
                 { role: 'system', content: systemPrompt },
@@ -424,17 +389,17 @@ If the teacher asks a general question, respond normally without the JSON block.
 
             const jsonMatch = reply.match(/<<<JSON>>>([\s\S]*?)<<<END>>>/);
             let taggingData = null;
-            let cleanReply = reply;
+            let cleanReply = reply.replace(/<<<JSON>>>[\s\S]*?<<<END>>>/, '').trim();
+            if (!cleanReply) cleanReply = "Done! Working Area mein details update ho gayi hain.";
 
             if (jsonMatch) {
                 try {
                     taggingData = JSON.parse(jsonMatch[1].trim());
-                    cleanReply = "Done! Working Area mein details update ho gayi hain. Ab aur kahan tagging karani hai?";
                     if (taggingData.activities && taggingData.activities.length > 0) {
                         updateTracker(context.uploadedFilename, taggingData.activities);
                     }
                 } catch (e) {
-                    console.error('JSON parse from chat failed:', e.message);
+                    console.error('JSON parse failed:', e.message);
                 }
             }
 
@@ -448,15 +413,12 @@ If the teacher asks a general question, respond normally without the JSON block.
 
     // Static file serving with Path Traversal Protection
     const mimes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg' };
-    
-    // Sanitize pathname to prevent directory traversal
     const safePath = path.normalize(pathname).replace(/^(\.\.[\/\\])+/, '');
     let filePath = path.join(PUBLIC_DIR, safePath === '/' ? 'index.html' : safePath);
     if (!fs.existsSync(filePath)) {
         filePath = path.join(BASE_DIR, safePath === '/' ? 'index.html' : safePath);
     }
 
-    // Check that target path is within project root
     if (!filePath.startsWith(BASE_DIR)) {
         res.writeHead(403);
         res.end('403 Forbidden');

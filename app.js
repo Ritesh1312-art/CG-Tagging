@@ -1,4 +1,4 @@
-// CG Tagging Tool — Complete Refactored Frontend (Node + Static Compatible)
+// CG Tagging Tool — Complete Refactored Frontend v20
 
 // PDF.js worker setup
 if (typeof pdfjsLib !== 'undefined') {
@@ -9,13 +9,10 @@ if (typeof pdfjsLib !== 'undefined') {
 const stageSelect          = document.getElementById('stage-select');
 const coreSelect           = document.getElementById('core-select');
 const refreshCoreBtn       = document.getElementById('refresh-core-btn');
-const fixedFileName        = document.getElementById('fixed-file-name');
 const dropZone             = document.getElementById('drop-zone');
 const fileInput            = document.getElementById('file-input');
 const uploadedFileStatus   = document.getElementById('uploaded-file-status');
 const removeFileBtn        = document.getElementById('remove-file-btn');
-const textPreviewContainer = document.getElementById('text-preview-container');
-const extractedTextPreview = document.getElementById('extracted-text-preview');
 const analyzeBtn           = document.getElementById('analyze-btn');
 const loadingOverlay       = document.getElementById('loading-overlay');
 const loadingMsg           = document.getElementById('loading-msg');
@@ -24,8 +21,7 @@ const resultsContainer     = document.getElementById('results-container');
 const chatMessages         = document.getElementById('chat-messages');
 const chatInput            = document.getElementById('chat-input');
 const chatSendBtn          = document.getElementById('chat-send-btn');
-const historyBtn           = document.getElementById('history-btn');
-const historyPanel         = document.getElementById('history-panel');
+const clearChatBtn         = document.getElementById('clear-chat-btn');
 
 // NCF Tracker DOM elements
 const trackerWidget             = document.getElementById('tracker-widget');
@@ -43,29 +39,16 @@ function safeSetStorage(key, value) {
     try {
         localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
     } catch (e) {
-        console.warn('LocalStorage full or unavailable, clearing chat log cache...');
+        console.warn('LocalStorage full, clearing old logs...');
         try {
             localStorage.removeItem('cgChatLog');
             localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
-        } catch (err) {
-            console.error('LocalStorage write failed:', err);
-        }
+        } catch (err) {}
     }
 }
 
 function safeGetStorage(key) {
-    try {
-        return localStorage.getItem(key);
-    } catch (e) {
-        return null;
-    }
-}
-
-let conversationLog = [];
-try {
-    conversationLog = JSON.parse(safeGetStorage('cgChatLog') || '[]');
-} catch (e) {
-    conversationLog = [];
+    try { return localStorage.getItem(key); } catch (e) { return null; }
 }
 
 // Hardcoded Stages Configuration
@@ -75,7 +58,7 @@ const STAGES_CONFIG = {
     "03. Middle": ["ART M.CG.pdf", "English M.CG.pdf", "Hindi M.CG.pdf", "Maths M.CG.pdf", "SST M.CG.pdf", "Sanskrit M.CG.pdf", "Science M.CG.pdf"]
 };
 
-// Initial Pre-populated Tracker Data for Chapters 11, 12, 13
+// Initial Pre-populated Tracker Data for Chapters 11 & 12
 const INITIAL_TRACKER_DATA = {
   "chapters": {
     "11.pdf": [
@@ -89,33 +72,7 @@ const INITIAL_TRACKER_DATA = {
         "printedCompetency": "None",
         "printedSkill": "None",
         "auditStatus": "Missing",
-        "explanation": "इस गतिविधि में छात्रों को किसी स्पोर्ट्स कोच का साक्षात्कार लेना है। यह सीधा C-1.2 के अंतर्गत आता है। पाठ्यपुस्तक में इसके लिए कोई टैग मुद्रित नहीं था।"
-      },
-      {
-        "pageNumber": "106",
-        "activityName": "Story Journey (OMR Comprehension Questions)",
-        "competencyCode": "CG-1, C-1.1",
-        "skillName": "Critical Thinking",
-        "coreCompetencyText": "Identifies main points and summarises from a careful listening or reading of the text",
-        "coreCompetencyHindi": "पाठ के ध्यानपूर्वक सुनने या पढ़ने से मुख्य बिंदुओं की पहचान करना और सारांश निकालना",
-        "printedCompetency": "None",
-        "printedSkill": "None",
-        "auditStatus": "Missing",
-        "explanation": "छात्रों को कहानी पढ़ने के बाद MCQs के उत्तर देने हैं, जिससे वे पाठ से मुख्य बिंदुओं की पहचान कर सकें। यह C-1.1 का हिस्सा है।"
-      }
-    ],
-    "12.pdf": [
-      {
-        "pageNumber": "115",
-        "activityName": "Homage Table (Wonder Window)",
-        "competencyCode": "CG-2, C-2.3",
-        "skillName": "Social and Cross-Cultural Interaction",
-        "coreCompetencyText": "Expresses through speech and writing their ideas and critiques on social/cultural surroundings",
-        "coreCompetencyHindi": "अपने सामाजिक और सांस्कृतिक परिवेश पर विचारों को व्यक्त करना",
-        "printedCompetency": "None",
-        "printedSkill": "None",
-        "auditStatus": "Missing",
-        "explanation": "शहीदों के सम्मान में विचार साझा करना C-2.3 और Social Interaction को मजबूत करता है।"
+        "explanation": "इस गतिविधि में छात्रों को किसी स्पोर्ट्स कोच का साक्षात्कार लेना है। यह सीधा C-1.2 के अंतर्गत आता है।"
       }
     ]
   }
@@ -126,7 +83,6 @@ let state = {
     selectedCoreFile: '',
     uploadedText: '',
     uploadedFilename: '',
-    analysisReady: false,
     chatHistory: [],
     coreTextCache: '',
     skillsTextCache: ''
@@ -136,11 +92,30 @@ let state = {
 loadStages();
 loadFixedSkills();
 updateTrackerUI();
-resetChat();
 
 function esc(str) { return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])); }
 
-// Populate dropdown 1: Select Stage
+// Simple Markdown to HTML Formatter (Requirement 3)
+function formatMarkdown(text) {
+    if (!text) return '';
+    let html = esc(text);
+    
+    // Bold: **text**
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Inline Code: `code`
+    html = html.replace(/`(.*?)`/g, '<code>$1</code>');
+    
+    // Bullet Points: - Item or * Item
+    html = html.replace(/(?:^|\n)[-\*]\s+(.*?)(?=\n|$)/g, '<br>• $1');
+    
+    // Line breaks
+    html = html.replace(/\n/g, '<br>');
+    
+    return html;
+}
+
+// Populate stage dropdown
 function loadStages() {
     if (!stageSelect) return;
     stageSelect.innerHTML = '<option value="">-- Select Stage --</option>';
@@ -152,7 +127,7 @@ function loadStages() {
     });
 }
 
-// Stage selected -> Load core dropdown
+// Stage change
 if (stageSelect) {
     stageSelect.addEventListener('change', (e) => {
         const val = e.target.value;
@@ -177,6 +152,7 @@ if (stageSelect) {
     });
 }
 
+// Core file selection
 if (coreSelect) {
     coreSelect.addEventListener('change', async (e) => {
         state.selectedCoreFile = e.target.value;
@@ -187,7 +163,6 @@ if (coreSelect) {
                 if (!res.ok) throw new Error('Curriculum cache not found');
                 state.coreTextCache = await res.text();
             } catch (err) {
-                console.warn('Error loading core file cache:', err);
                 state.coreTextCache = `English Middle Stage Curriculum Goals:
 CG-1: Listening and Speaking (C-1.1, C-1.2, C-1.3, C-1.4, C-1.5)
 CG-2: Reading and Writing (C-2.1, C-2.2, C-2.3)
@@ -207,25 +182,19 @@ CG-5: Wordplays & Puns (C-5.1, C-5.2, C-5.3)`;
 async function loadFixedSkills() {
     try {
         const res = await fetch('./cache/21st Century Skill.pdf.txt');
-        if (!res.ok) throw new Error('Skills cache not found');
-        state.skillsTextCache = await res.text();
-    } catch (e) {
-        console.warn('Error loading skills file:', e);
-        state.skillsTextCache = 'Official 21st Century Skills: Critical Thinking, Creativity, Collaboration, Communication, Information Literacy, Media Literacy, Technology Literacy.';
-    }
+        if (res.ok) state.skillsTextCache = await res.text();
+    } catch (e) {}
 }
 
-// ─── DRAG & DROP ─────────────────────────────────────────────────────────────
+// ─── FILE UPLOAD HANDLERS ───────────────────────────────────────────────────
 if (dropZone) {
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
     dropZone.addEventListener('drop', async (e) => {
         e.preventDefault();
         dropZone.classList.remove('dragover');
-        const files = e.dataTransfer.files;
-        if (files.length > 0) handleFileUpload(files[0]);
+        if (e.dataTransfer.files.length > 0) handleFileUpload(e.dataTransfer.files[0]);
     });
-
     dropZone.addEventListener('click', () => fileInput && fileInput.click());
 }
 
@@ -236,19 +205,15 @@ if (fileInput) {
 }
 
 async function handleFileUpload(file) {
-    showLoading(true, '📄 Reading PDF and preparing text...');
+    showLoading(true, '📄 Reading Chapter PDF...');
     try {
         state.uploadedFilename = file.name;
-        
         let text = '';
+        
         try {
             const cacheRes = await fetch(`./cache/${encodeURIComponent(file.name)}.txt`);
-            if (cacheRes.ok) {
-                text = await cacheRes.text();
-            }
-        } catch (cacheErr) {
-            console.warn('Cache fetch failed:', cacheErr);
-        }
+            if (cacheRes.ok) text = await cacheRes.text();
+        } catch (err) {}
 
         if (!text) {
             if (file.name.toLowerCase().endsWith('.pdf') && typeof pdfjsLib !== 'undefined') {
@@ -266,15 +231,13 @@ async function handleFileUpload(file) {
         }
 
         state.uploadedText = text;
-        state.analysisReady = false;
-
         const nameLabel = document.querySelector('.file-name-text');
         if (nameLabel) nameLabel.textContent = file.name;
         if (uploadedFileStatus) uploadedFileStatus.style.display = 'flex';
         if (dropZone) dropZone.style.display = 'none';
         checkReady();
     } catch (e) {
-        alert('File read failed: ' + e.message);
+        alert('File read error: ' + e.message);
     } finally {
         showLoading(false);
     }
@@ -284,53 +247,87 @@ if (removeFileBtn) {
     removeFileBtn.addEventListener('click', () => {
         state.uploadedText = '';
         state.uploadedFilename = '';
-        state.analysisReady = false;
         if (fileInput) fileInput.value = '';
         if (uploadedFileStatus) uploadedFileStatus.style.display = 'none';
         if (dropZone) dropZone.style.display = 'flex';
         checkReady();
-        resetChat();
+    });
+}
+
+// Analyze button event
+if (analyzeBtn) {
+    analyzeBtn.addEventListener('click', () => {
+        if (!state.selectedStage || !state.selectedCoreFile || !state.uploadedText) return;
+        enableChat(true);
+        addChatBubble('ai', `✅ Context loaded successfully for **${state.uploadedFilename}** with **${state.selectedCoreFile}**!\n\nAap is chapter ke baare mein koyi bhi sawal pooch sakte hain, ya kisi bhi activity ki NCF tagging aur audit karne ke liye keh sakte hain.`);
     });
 }
 
 function checkReady() {
     const ready = !!(state.selectedStage && state.selectedCoreFile && state.uploadedText);
     if (analyzeBtn) analyzeBtn.disabled = !ready;
+    enableChat(ready);
+}
+
+function enableChat(enable) {
+    if (chatInput) chatInput.disabled = !enable;
+    if (chatSendBtn) chatSendBtn.disabled = !enable;
 }
 
 function showLoading(show, msg) {
     if (loadingOverlay) loadingOverlay.style.display = show ? 'flex' : 'none';
-    if (loadingMsg) loadingMsg.textContent = msg || 'Loading...';
+    if (loadingMsg) loadingMsg.textContent = msg || 'Processing...';
 }
 
-// ─── CHAT FLOW ───────────────────────────────────────────────────────────────
+// ─── CHAT BUBBLE & SCROLLING (Requirement 2 & 3) ─────────────────────────────
 function addChatBubble(sender, text) {
     if (!chatMessages) return null;
+    
     const container = document.createElement('div');
     container.className = `chat-bubble-container ${sender}-container`;
-    const b = document.createElement('div');
-    b.className = `chat-bubble ${sender}-bubble`;
-    b.innerHTML = `<span style="color:${sender==='user'?'#81c784':'#ffd166'}; font-weight:bold;">${sender==='user'?'Teacher: ':'AI Auditor: '}</span>` + (sender === 'user' ? esc(text) : text);
-    container.appendChild(b);
+    
+    const avatar = document.createElement('div');
+    avatar.className = `chat-avatar ${sender}-avatar`;
+    avatar.textContent = sender === 'user' ? '👤' : '🤖';
+    
+    const bubble = document.createElement('div');
+    bubble.className = `chat-bubble ${sender}-bubble`;
+    
+    const author = document.createElement('div');
+    author.className = 'chat-author';
+    author.textContent = sender === 'user' ? 'Teacher' : 'AI Academic Auditor';
+    
+    const body = document.createElement('div');
+    body.className = 'chat-body';
+    body.innerHTML = formatMarkdown(text);
+    
+    bubble.appendChild(author);
+    bubble.appendChild(body);
+    
+    container.appendChild(avatar);
+    container.appendChild(bubble);
+    
     chatMessages.appendChild(container);
+    
+    // Auto-scroll smoothly to bottom
     chatMessages.scrollTop = chatMessages.scrollHeight;
+    
     return container;
 }
 
-function resetChat() {
-    state.chatHistory = [];
-    state.analysisReady = false;
-    if (chatMessages) chatMessages.innerHTML = '';
-    if (chatInput) chatInput.disabled = false;
-    if (chatSendBtn) chatSendBtn.disabled = false;
-    if (analyzeBtn) analyzeBtn.disabled = true;
-    if (resultsPlaceholder) resultsPlaceholder.style.display = 'block';
-    if (resultsContainer) resultsContainer.style.display = 'none';
+if (clearChatBtn) {
+    clearChatBtn.addEventListener('click', () => {
+        if (!confirm('Clear all chat messages?')) return;
+        state.chatHistory = [];
+        if (chatMessages) chatMessages.innerHTML = '';
+        addChatBubble('ai', 'Chat cleared. How can I help you today?');
+    });
 }
 
-if (chatInput) chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMsg(); });
+if (chatInput) chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMsg(); } });
 if (chatSendBtn) chatSendBtn.addEventListener('click', sendChatMsg);
 
+// ─── DUAL-MODE CONVERSATIONAL & TAGGING CHATBOT (Requirement 4) ─────────────
 async function sendChatMsg() {
     const text = chatInput.value.trim();
     if (!text) return;
@@ -338,19 +335,16 @@ async function sendChatMsg() {
     addChatBubble('user', text);
     chatInput.value = '';
     state.chatHistory.push({ role: 'user', content: text });
-    
-    conversationLog.push({ user: text, bot: null });
-    safeSetStorage('cgChatLog', conversationLog);
 
-    const thinkingBubble = addChatBubble('ai', '⏳ Analyzing curriculum & activity text...');
+    const thinkingBubble = addChatBubble('ai', '⏳ Soch raha hoon...');
 
     try {
         let replyText = '';
         let taggingData = null;
         let cleanReply = '';
-
-        // Try calling backend endpoint first (/api/chat)
         let backendSuccess = false;
+
+        // Try Node Backend first
         try {
             const apiRes = await fetch('/api/chat', {
                 method: 'POST',
@@ -374,14 +368,14 @@ async function sendChatMsg() {
                     backendSuccess = true;
                 }
             }
-        } catch (serverErr) {
-            console.warn('Backend server not reachable, falling back to direct AI call:', serverErr);
-        }
+        } catch (serverErr) {}
 
-        // Fallback: direct Pollinations API call if server is not running
+        // Fallback: direct Pollinations API call if server is offline
         if (!backendSuccess) {
-            const systemPrompt = `You are the Expert Academic Auditor for a Class 7 English textbook. Perform NCF curriculum tagging.
-Follow all guidelines: output detailed reasoning in Hinglish, then JSON block wrapped in <<<JSON>>> and <<<END>>>.`;
+            const systemPrompt = `You are the Expert Academic Auditor & Helpful Assistant for NCF Curriculum.
+You have two modes:
+1. CONVERSATIONAL MODE: If the teacher asks general questions, chat casually, explain concepts, answer doubts in friendly Hindi/English. Do NOT include JSON block.
+2. TAGGING MODE: If the teacher requests tagging or auditing of an activity, perform deep audit and include the <<<JSON>>> block.`;
 
             const response = await fetch('https://text.pollinations.ai/', {
                 method: 'POST',
@@ -399,19 +393,16 @@ Follow all guidelines: output detailed reasoning in Hinglish, then JSON block wr
             replyText = await response.text();
 
             const jsonMatch = replyText.match(/<<<JSON>>>([\s\S]*?)<<<END>>>/);
-            cleanReply = replyText;
+            cleanReply = replyText.replace(/<<<JSON>>>[\s\S]*?<<<END>>>/, '').trim();
+            if (!cleanReply) cleanReply = "Done! Working Area mein details update ho gayi hain.";
 
             if (jsonMatch) {
                 try {
                     taggingData = JSON.parse(jsonMatch[1].trim());
-                    cleanReply = "Done! Working Area mein details update ho gayi hain. Ab aur kahan tagging karani hai?";
-                } catch (jsonErr) {
-                    console.error('JSON parse failed:', jsonErr);
-                }
+                } catch (jsonErr) {}
             }
         }
 
-        // Remove thinking bubble and show clean response
         if (thinkingBubble) thinkingBubble.remove();
         addChatBubble('ai', cleanReply);
         state.chatHistory.push({ role: 'assistant', content: cleanReply });
@@ -428,35 +419,26 @@ Follow all guidelines: output detailed reasoning in Hinglish, then JSON block wr
     }
 }
 
-// ─── TRACKER & LOCAL STORAGE ──────────────────────────────────────────────────
+// ─── TRACKER & RESULTS RENDERING ─────────────────────────────────────────────
 function getTrackerLocal() {
     let trk = safeGetStorage('ncf_tracker');
     if (!trk) {
         safeSetStorage('ncf_tracker', INITIAL_TRACKER_DATA);
         return INITIAL_TRACKER_DATA;
     }
-    try {
-        return JSON.parse(trk);
-    } catch (e) {
-        return INITIAL_TRACKER_DATA;
-    }
+    try { return JSON.parse(trk); } catch (e) { return INITIAL_TRACKER_DATA; }
 }
 
 function saveTrackerLocal(filename, newActivities) {
     if (!filename) return;
     let tracker = getTrackerLocal();
     if (!tracker.chapters) tracker.chapters = {};
-    if (!tracker.chapters[filename]) {
-        tracker.chapters[filename] = [];
-    }
+    if (!tracker.chapters[filename]) tracker.chapters[filename] = [];
     
     newActivities.forEach(newAct => {
         const idx = tracker.chapters[filename].findIndex(a => a.activityName === newAct.activityName);
-        if (idx !== -1) {
-            tracker.chapters[filename][idx] = newAct;
-        } else {
-            tracker.chapters[filename].push(newAct);
-        }
+        if (idx !== -1) tracker.chapters[filename][idx] = newAct;
+        else tracker.chapters[filename].push(newAct);
     });
     
     safeSetStorage('ncf_tracker', tracker);
@@ -468,28 +450,25 @@ async function updateTrackerUI() {
         const auditedChapters = Object.keys(data.chapters || {});
 
         const allCompetencies = [
-            { code: "1.1", desc: "C-1.1: Identifies main points and summarises from a careful listening or reading of text" },
-            { code: "1.2", desc: "C-1.2: Listens to, plans, and conducts different kinds of interviews" },
-            { code: "1.3", desc: "C-1.3: Raises probing questions about social experiences using appropriate language" },
-            { code: "1.4", desc: "C-1.4: Writes different kinds of letters, essays, and reports" },
-            { code: "1.5", desc: "C-1.5: Creates content for audio, visual, or both" },
-            { code: "2.1", desc: "C-2.1: Identifies and appreciates different forms of literature" },
-            { code: "2.2", desc: "C-2.2: Identifies literary devices by reading literature" },
-            { code: "2.3", desc: "C-2.3: Expresses ideas and critiques on social/cultural surroundings" },
-            { code: "3.1", desc: "C-3.1: Interprets and understands basic linguistic rules" },
-            { code: "3.2", desc: "C-3.2: Writes prose, poetry, and drama using appropriate language" },
-            { code: "4.1", desc: "C-4.1: Reads, responds to, and critically reviews books" },
-            { code: "4.2", desc: "C-4.2: Uses books and media resources effectively for projects" },
+            { code: "1.1", desc: "C-1.1: Identifies main points and summarises text" },
+            { code: "1.2", desc: "C-1.2: Listens to, plans, and conducts interviews" },
+            { code: "1.3", desc: "C-1.3: Raises probing questions about social experiences" },
+            { code: "1.4", desc: "C-1.4: Writes letters, essays, and reports" },
+            { code: "1.5", desc: "C-1.5: Creates content for audio/visual media" },
+            { code: "2.1", desc: "C-2.1: Identifies and appreciates literature" },
+            { code: "2.2", desc: "C-2.2: Identifies literary devices" },
+            { code: "2.3", desc: "C-2.3: Expresses ideas and critiques on surroundings" },
+            { code: "3.1", desc: "C-3.1: Interprets linguistic rules" },
+            { code: "3.2", desc: "C-3.2: Writes prose, poetry, and drama" },
+            { code: "4.1", desc: "C-4.1: Reads and critically reviews books" },
+            { code: "4.2", desc: "C-4.2: Uses media resources for projects" },
             { code: "5.1", desc: "C-5.1: Understands phonetics and script" },
-            { code: "5.2", desc: "C-5.2: Engages in wordplays, puns, rhymes" },
-            { code: "5.3", desc: "C-5.3: Becomes familiar with major word games" }
+            { code: "5.2", desc: "C-5.2: Engages in wordplays and puns" },
+            { code: "5.3", desc: "C-5.3: Familiar with major word games" }
         ];
 
         const compCoverage = {};
-        allCompetencies.forEach(c => {
-            compCoverage[c.code] = { desc: c.desc, covered: false, chapters: [] };
-        });
-
+        allCompetencies.forEach(c => { compCoverage[c.code] = { desc: c.desc, covered: false, chapters: [] }; });
         const skillsCoverage = {};
 
         auditedChapters.forEach(ch => {
@@ -500,9 +479,7 @@ async function updateTrackerUI() {
                     const code = match[1];
                     if (compCoverage[code]) {
                         compCoverage[code].covered = true;
-                        if (!compCoverage[code].chapters.includes(ch)) {
-                            compCoverage[code].chapters.push(ch);
-                        }
+                        if (!compCoverage[code].chapters.includes(ch)) compCoverage[code].chapters.push(ch);
                     }
                 }
                 if (act.skillName) {
@@ -515,7 +492,7 @@ async function updateTrackerUI() {
         const totalCompetenciesCovered = Object.values(compCoverage).filter(c => c.covered).length;
 
         if (auditedChapters.length > 0 && trackerWidget) {
-            trackerWidget.style.display = 'flex';
+            trackerWidget.style.display = 'block';
             if (trackerChaptersCount) trackerChaptersCount.textContent = auditedChapters.length;
             if (trackerCompetencyCount) trackerCompetencyCount.textContent = `${totalCompetenciesCovered} / 15`;
             
@@ -536,20 +513,13 @@ async function updateTrackerUI() {
 
             if (trackerSkillsDistribution) {
                 trackerSkillsDistribution.innerHTML = '';
-                const skills = Object.keys(skillsCoverage);
-                if (skills.length > 0) {
-                    skills.forEach(skill => {
-                        const badge = document.createElement('span');
-                        badge.className = 'skill-badge';
-                        badge.textContent = `${skill}: ${skillsCoverage[skill]}`;
-                        trackerSkillsDistribution.appendChild(badge);
-                    });
-                } else {
-                    trackerSkillsDistribution.innerHTML = '<div style="font-size:0.75rem;color:var(--text-secondary)">No skills mapped yet.</div>';
-                }
+                Object.keys(skillsCoverage).forEach(skill => {
+                    const badge = document.createElement('span');
+                    badge.className = 'skill-badge';
+                    badge.textContent = `${skill}: ${skillsCoverage[skill]}`;
+                    trackerSkillsDistribution.appendChild(badge);
+                });
             }
-        } else if (trackerWidget) {
-            trackerWidget.style.display = 'none';
         }
     } catch (e) {
         console.error('Error updating tracker UI:', e);
@@ -558,7 +528,7 @@ async function updateTrackerUI() {
 
 if (resetTrackerBtn) {
     resetTrackerBtn.addEventListener('click', () => {
-        if (!confirm('Are you sure you want to reset the cumulative book tracker? This will clear all audit history.')) return;
+        if (!confirm('Are you sure you want to reset the cumulative book tracker?')) return;
         safeSetStorage('ncf_tracker', { chapters: {} });
         updateTrackerUI();
     });
@@ -566,17 +536,12 @@ if (resetTrackerBtn) {
 
 if (toggleTrackerDetailsBtn && trackerDetailsPanel) {
     toggleTrackerDetailsBtn.addEventListener('click', () => {
-        if (trackerDetailsPanel.style.display === 'none') {
-            trackerDetailsPanel.style.display = 'flex';
-            toggleTrackerDetailsBtn.textContent = '🔼 Hide Coverage Matrix';
-        } else {
-            trackerDetailsPanel.style.display = 'none';
-            toggleTrackerDetailsBtn.textContent = '🔍 View Coverage Matrix';
-        }
+        const isHidden = trackerDetailsPanel.style.display === 'none';
+        trackerDetailsPanel.style.display = isHidden ? 'block' : 'none';
+        toggleTrackerDetailsBtn.textContent = isHidden ? '🔼 Hide Coverage Matrix' : '🔍 View Coverage Matrix';
     });
 }
 
-// ─── RENDERING RESULTS ────────────────────────────────────────────────────────
 function renderResults(activities, append = false) {
     if (!resultsContainer) return;
     if (resultsPlaceholder) resultsPlaceholder.style.display = 'none';
@@ -594,46 +559,21 @@ function renderResults(activities, append = false) {
             <span class="tag-badge">${esc(act.competencyCode)}</span>
           </div>
 
-          <div class="card-act-name">
-            <span class="act-label">Activity:</span>
-            <span class="act-value">${esc(act.activityName)}</span>
+          <div class="card-act-name">${esc(act.activityName)}</div>
+
+          <div class="comparison-box">
+            <div class="comparison-title">Audit Tag Comparison</div>
+            <div>Printed: <span class="printed">CG: ${esc(act.printedCompetency || 'None')}</span></div>
+            <div>Correct: <span class="correct-val">${esc(act.competencyCode)} | Skill: ${esc(act.skillName)}</span></div>
           </div>
 
-          <div class="card-body">
-            
-            <div style="margin-bottom: 8px;">
-              <span class="act-label">Audit Status:</span>
-              <span class="audit-badge ${statusClass}">${esc(act.auditStatus || 'Missing')}</span>
-            </div>
+          <div class="cg-line-box">
+            <div><strong>${esc(act.competencyCode)}:</strong> ${esc(act.coreCompetencyText)}</div>
+            <div style="color:var(--text-secondary); margin-top:4px;"><strong>हिंदी:</strong> ${esc(act.coreCompetencyHindi)}</div>
+          </div>
 
-            <div class="comparison-box">
-              <div class="comparison-title">Audit Tag Comparison</div>
-              <div class="comparison-row">
-                <span class="comparison-label">Printed in Textbook:</span>
-                <span class="comparison-val printed">CG: ${esc(act.printedCompetency || 'None')} | Skill: ${esc(act.printedSkill || 'None')}</span>
-              </div>
-              <div class="comparison-row">
-                <span class="comparison-label">Correct Official Mapping:</span>
-                <span class="comparison-val correct-val">${esc(act.competencyCode)} | Skill: ${esc(act.skillName)}</span>
-              </div>
-            </div>
-
-            <div class="cg-line-box">
-              <div class="cg-line-en">
-                <span class="cg-code-label">${esc(act.competencyCode)} —</span>
-                <span class="cg-text-en">${esc(act.coreCompetencyText)}</span>
-              </div>
-              <div class="cg-line-hi">
-                <span class="hindi-label">हिंदी:</span>
-                <span class="cg-text-hi">${esc(act.coreCompetencyHindi)}</span>
-              </div>
-            </div>
-
-            <div class="explanation-box">
-              <div class="exp-label">💡 Explanation (Hindi):</div>
-              <div class="exp-text">${esc(act.explanation)}</div>
-            </div>
-
+          <div class="explanation-box">
+            ${esc(act.explanation)}
           </div>`;
 
         resultsContainer.appendChild(card);
