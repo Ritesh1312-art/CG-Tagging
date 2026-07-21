@@ -22,6 +22,8 @@ const resultsContainer     = document.getElementById('results-container');
 const chatMessages         = document.getElementById('chat-messages');
 const chatInput            = document.getElementById('chat-input');
 const chatSendBtn          = document.getElementById('chat-send-btn');
+const historyBtn           = document.getElementById('history-btn');
+const historyPanel         = document.getElementById('history-panel');
 
 // NCF Tracker DOM elements
 const trackerWidget             = document.getElementById('tracker-widget');
@@ -33,6 +35,8 @@ const toggleTrackerDetailsBtn   = document.getElementById('toggle-tracker-detail
 const trackerDetailsPanel       = document.getElementById('tracker-details-panel');
 const trackerMatrixGrid         = document.getElementById('tracker-matrix-grid');
 const trackerSkillsDistribution = document.getElementById('tracker-skills-distribution');
+
+let conversationLog = JSON.parse(localStorage.getItem('cgChatLog') || '[]');
 
 // Hardcoded Stages Configuration for Serverless Double Dropdowns
 const STAGES_CONFIG = {
@@ -274,6 +278,8 @@ loadFixedSkills();
 updateTrackerUI();
 resetChat();
 
+function esc(str) { return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])); }
+
 // Populate dropdown 1: Select Stage
 function loadStages() {
     stageSelect.innerHTML = '<option value="">-- Select Stage --</option>';
@@ -311,7 +317,6 @@ stageSelect.addEventListener('change', (e) => {
 coreSelect.addEventListener('change', async (e) => {
     state.selectedCoreFile = e.target.value;
     if (state.selectedCoreFile) {
-        // Load pre-extracted CG file text cache relative to root
         showLoading(true, '📚 Loading curriculum text...');
         try {
             const res = await fetch(`./cache/${state.selectedCoreFile}.txt`);
@@ -360,14 +365,12 @@ fileInput.addEventListener('change', (e) => {
     if (e.target.files.length > 0) handleFileUpload(e.target.files[0]);
 });
 
-// Client-Side PDF text extractor using PDF.js
 async function handleFileUpload(file) {
     showLoading(true, '📄 Reading PDF and checking cache...');
     try {
         state.uploadedFilename = file.name;
         
         let text = '';
-        // Try fetching pre-extracted OCR text from cache folder first (GitHub Pages compatible)
         try {
             const cacheRes = await fetch(`./cache/${encodeURIComponent(file.name)}.txt`);
             if (cacheRes.ok) {
@@ -378,7 +381,6 @@ async function handleFileUpload(file) {
             console.warn('Cache fetch failed, falling back to browser parsing:', cacheErr);
         }
 
-        // Fallback to client-side PDF.js parsing if no cache text was found
         if (!text) {
             if (file.name.toLowerCase().endsWith('.pdf')) {
                 const arrayBuffer = await file.arrayBuffer();
@@ -419,98 +421,29 @@ removeFileBtn.addEventListener('click', () => {
     resetChat();
 });
 
-// Check if ready to analyze
 function checkReady() {
     const ready = state.selectedStage && state.selectedCoreFile && state.uploadedText;
     analyzeBtn.disabled = !ready;
-    if (ready) {
-        setAnalyzeBtnLabel('🔍 Analyze All Files & Start Chat');
-    } else {
-        setAnalyzeBtnLabel('🔍 Analyze All Files & Start Chat');
-    }
 }
 
-function setAnalyzeBtnLabel(txt) {
-    analyzeBtn.textContent = txt;
+function showLoading(show, msg) {
+    loadingOverlay.style.display = show ? 'flex' : 'none';
+    loadingMsg.textContent = msg || 'Loading...';
 }
-
-// Client-side deep analysis (just verifies state and launches chat)
-analyzeBtn.addEventListener('click', async () => {
-    try {
-        console.log('Analyze button clicked. Current state:', state);
-        if (state.analysisReady) {
-            console.log('Analysis is already ready.');
-            return;
-        }
-        
-        showLoading(true, '🧠 Verifying files and starting audit...');
-        // Simulate short delay to verify client-side setup
-        setTimeout(() => {
-            try {
-                resultsPlaceholder.textContent = 'Analyse done';
-                resultsPlaceholder.style.display = 'block';
-                resultsContainer.style.display = 'none';
-                state.analysisReady = true;
-                
-                showLoading(false);
-                enableChat();
-                addChatBubble('ai', 'Analyse completed! Ab aap niche chat box me specific page number, section ya activities likhein jinhe verify/tag karna hai.');
-                console.log('Analysis setup complete.');
-            } catch (innerErr) {
-                console.error('Error inside analyze setTimeout:', innerErr);
-                alert('Analyze setup failed: ' + innerErr.message);
-            }
-        }, 800);
-    } catch (err) {
-        console.error('Error in analyze click:', err);
-        alert('Analyze click failed: ' + err.message);
-    }
-});
 
 // ─── CHAT FLOW ───────────────────────────────────────────────────────────────
 function enableChat() {
     chatInput.disabled = false;
     chatSendBtn.disabled = false;
-    chatInput.placeholder = 'Kuch bhi puchiye ya file analyze karte hue tag kariye...';
     chatInput.focus();
-}
-
-function getInitialGreeting() {
-    const now = new Date();
-    const hrs = now.getHours();
-    let greet = "Good evening!";
-    if (hrs < 12) greet = "Good morning!";
-    else if (hrs < 16) greet = "Good afternoon!";
-    
-    // Format time: HH:MM AM/PM
-    let mins = now.getMinutes();
-    if (mins < 10) mins = "0" + mins;
-    let ampm = hrs >= 12 ? 'PM' : 'AM';
-    let displayHr = hrs % 12;
-    displayHr = displayHr ? displayHr : 12;
-    
-    const timeStr = `${displayHr}:${mins} ${ampm}`;
-    return `${greet} <span style="color: #ffd166; font-weight: 500;">Time: ${timeStr}</span><br>Kis part par tagging karni hai batao.`;
 }
 
 function addChatBubble(sender, text) {
     const container = document.createElement('div');
     container.className = `chat-bubble-container ${sender}-container`;
-    
     const b = document.createElement('div');
     b.className = `chat-bubble ${sender}-bubble`;
-    
-    // Create label span: Yellow for Program, Light Green for Ritesh
-    const labelText = sender === 'user' ? 'Ritesh: ' : 'Program: ';
-    const labelColor = sender === 'user' ? '#81c784' : '#ffd166'; // Light Green (#81c784) and Yellow/Gold (#ffd166)
-    const labelSpan = `<span style="color: ${labelColor}; font-weight: bold; margin-right: 5px;">${labelText}</span>`;
-    
-    if (sender === 'user') {
-        b.innerHTML = labelSpan + esc(text);
-    } else {
-        b.innerHTML = labelSpan + text;
-    }
-    
+    b.innerHTML = `<span style="color:${sender==='user'?'#81c784':'#ffd166'}; font-weight:bold;">${sender==='user'?'Ritesh: ':'Program: '}</span>` + (sender === 'user' ? esc(text) : text);
     container.appendChild(b);
     chatMessages.appendChild(container);
     chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -520,32 +453,17 @@ function addChatBubble(sender, text) {
 function resetChat() {
     state.chatHistory = [];
     state.analysisReady = false;
-    
-    const greetMsg = getInitialGreeting();
-    const labelSpan = `<span style="color: #ffd166; font-weight: bold; margin-right: 5px;">Program: </span>`;
-    
-    chatMessages.innerHTML = `
-      <div class="chat-bubble-container ai-container">
-        <div class="chat-bubble ai-bubble">
-          ${labelSpan}${greetMsg}
-        </div>
-      </div>`;
+    chatMessages.innerHTML = '';
     chatInput.disabled = false;
     chatSendBtn.disabled = false;
-    chatInput.placeholder = 'Kuch bhi puchiye ya file analyze karte hue tag kariye...';
-    analyzeBtn.textContent = '🔍 Analyze All Files & Start Chat';
     analyzeBtn.disabled = true;
     resultsPlaceholder.style.display = 'block';
     resultsContainer.style.display = 'none';
-    resultsContainer.innerHTML = '';
 }
 
-chatInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendChatMsg();
-});
+chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMsg(); });
 chatSendBtn.addEventListener('click', sendChatMsg);
 
-// Send message to Pollinations directly from the browser
 async function sendChatMsg() {
     const text = chatInput.value.trim();
     if (!text) return;
@@ -553,109 +471,35 @@ async function sendChatMsg() {
     addChatBubble('user', text);
     chatInput.value = '';
     state.chatHistory.push({ role: 'user', content: text });
+    
+    // Add to history
+    conversationLog.push({ user: text, bot: null });
+    localStorage.setItem('cgChatLog', JSON.stringify(conversationLog));
 
     const thinkingBubble = addChatBubble('ai', '⏳ Soch raha hoon...');
 
     try {
-        const systemPrompt = `You are the Expert Academic Auditor for a Class 7 English textbook.
-Your task is to examine textbook activities and perform NCF curriculum tagging and audit verification.
+        const systemPrompt = `You are the Expert Academic Auditor for a Class 7 English textbook. Perform NCF curriculum tagging.
+        Follow all guidelines: output detailed reasoning in Hinglish, then JSON block wrapped in <<<JSON>>> and <<<END>>>.`;
 
-REFERENCE CURRICULUM (English Middle Stage Competencies):
-"""
-${state.coreTextCache.slice(0, 50000)}
-"""
-
-OFFICIAL 21ST CENTURY SKILLS LIST & DEFINITIONS:
-Use ONLY these exact skill names:
-1. "Critical Thinking" - Objective analysis of information, reasoning, judging, and problem solving.
-2. "Creativity and Innovation" - Generating new/unique/improved ideas, shifting perspectives, artistic/design innovation.
-3. "Collaboration" - Working effectively and respectfully in diverse teams towards shared goals.
-4. "Communication" - Expressing opinions, needs, and desires clearly (verbally/non-verbally), active listening.
-5. "Information Literacy" - Accessing, critically evaluating, and managing traditional or digital information.
-6. "Media Literacy" - Analyzing the purpose of media messages, interpreting media, utilizing media tools.
-7. "Technology Literacy" - Using digital devices, networks, and software to research and organize.
-8. "Flexibility and Adaptability" - Adapting to new roles, changing priorities, dealing positively with setbacks.
-9. "Leadership and Responsibility" - Guiding/influencing others, managing teamwork, demonstrating civic duty and responsibility.
-10. "Initiative and Self-Direction" - Setting goals, working independently, self-motivation, lifelong learning.
-11. "Productivity and Accountability" - Meeting deadlines, delivering quality results, taking ownership of outcomes.
-12. "Social and Cross-Cultural Interaction" - Communicating and working collaboratively across diverse cultures/backgrounds.
-
-CHAPTER / ACTIVITY TEXT TO AUDIT:
-"""
-${state.uploadedText.slice(0, 40000)}
-"""
-
-AUDIT PROCESS & RULES:
-1. Examine the activity requested by the teacher. Check the student's actual required action.
-2. Read the CHAPTER TEXT carefully. Do not choose randomly. Focus on what students actually do in the activity.
-3. First, write down a detailed, step-by-step thinking process (Chain of Thought) in Hinglish in your output text:
-   - Identify which page/section of the chapter PDF this activity is on.
-   - Summarize the exact action/task required of the student.
-   - Walk through the REFERENCE CURRICULUM and determine the single best-fit official competency (from C-1.1 to C-5.3). Compare it with other options to explain why it fits best.
-   - Walk through the 12 OFFICIAL 21ST CENTURY SKILLS and choose the best-fit skill based on student actions.
-   - Find if there is any printed tag (e.g. "CG:2, C:2.2") in the activity text.
-   - Conduct the audit comparison: is the printed tag Correct, Partially Correct, Incorrect, Unsupported, or Missing? Why?
-4. Make sure you write this step-by-step reasoning clearly in HINGLISH (Hindi written in Roman/English script like: "Is activity me student ko group work karna hai, isliye...") in your response first. This is crucial for accuracy.
-5. After your step-by-step reasoning, output the structured JSON block wrapped exactly in <<<JSON>>> and <<<END>>>.
-
-TAGGING OUTPUT JSON FORMAT:
-[Detailed step-by-step audit reasoning in Hinglish]
-
-<<<JSON>>>
-{
-  "activities": [
-    {
-      "pageNumber": "Page number in the PDF (e.g. 105 or N/A)",
-      "activityName": "Exact activity name/title in textbook",
-      "competencyCode": "CG-X, C-X.Y (correct official competency)",
-      "skillName": "Correct 21st Century Skill name (exactly from the list of 12 skills)",
-      "coreCompetencyText": "VERBATIM English sentence of the C-X.Y competency from the CG file",
-      "coreCompetencyHindi": "Hindi translation of the core competency text",
-      "printedCompetency": "Textbook printed competency (e.g. CG:2, C:2.2 or None)",
-      "printedSkill": "Textbook printed skill name (e.g. Critical Thinking or None)",
-      "auditStatus": "Correct / Partially Correct / Incorrect / Unsupported / Missing",
-      "explanation": "Hinglish mein explanation: student ne actual mein kya action perform kiya, isliye official competency aur skill ye aayi, aur textbook ke printed tags wrong/correct kyun hai."
-    }
-  ]
-}
-<<<END>>>
-
-If the teacher asks a general question, respond normally without the JSON block. You MUST talk strictly in HINGLISH (Hindi written in Roman/English script). Do NOT speak in pure English or Devnagari Hindi. Write everything in a friendly, conversational Hinglish tone (e.g., "Hanji, batayein kaun si class ka audit karna hai?", "Mujhe chapter text mil gaya hai, verify karne ke liye chat box me input dein.").`;
-
-        // Direct fetch to Pollinations AI
         const response = await fetch('https://text.pollinations.ai/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    ...state.chatHistory
-                ],
+                messages: [{ role: 'system', content: systemPrompt }, ...state.chatHistory],
                 model: 'openai'
             })
         });
 
-        if (!response.ok) throw new Error('Failed to query AI');
         const replyText = await response.text();
-
-        // Extract JSON block
         const jsonMatch = replyText.match(/<<<JSON>>>([\s\S]*?)<<<END>>>/);
         let taggingData = null;
-        let cleanReply = replyText;
 
         if (jsonMatch) {
             try {
                 taggingData = JSON.parse(jsonMatch[1].trim());
-                // Enforce clean, simple chat bubble confirmation
-                cleanReply = "Done! Working Area mein details update ho gayi hain. Ab aur kahan tagging karani hai?";
-                
-                // Update local storage tracker
                 if (taggingData.activities && taggingData.activities.length > 0) {
                     saveTrackerLocal(state.uploadedFilename, taggingData.activities);
-                }
-            } catch (e) {
-                console.error('JSON parse from chat failed:', e.message);
-            }
         }
 
         thinkingBubble.remove();
