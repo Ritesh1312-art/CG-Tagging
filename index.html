@@ -90,8 +90,8 @@
                     </div>
                 </div>
 
-                <!-- Always-Enabled Analyze Button -->
-                <button id="analyze-btn" class="btn primary-btn">🔍 Analyze Chapter PDF & Tag Activities</button>
+                <!-- Analyze Button with direct native onclick handler -->
+                <button id="analyze-btn" type="button" class="btn primary-btn" onclick="runAnalyzeWorkflow()">🔍 Analyze Chapter PDF & Tag Activities</button>
             </section>
 
             <!-- Right Column: Full-Height AI Chat Window (Point 2) -->
@@ -145,6 +145,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=70"></script>
+    <script src="app.js?v=80"></script>
 </body>
 </html>

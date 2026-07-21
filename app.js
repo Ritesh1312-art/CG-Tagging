@@ -1,4 +1,4 @@
-// CG Tagging Tool — Complete Refactored Frontend v70 (Unconditional Analyze & Chat Engine)
+// CG Tagging Tool — Complete Refactored Frontend v80 (Guaranteed Native Onclick Execution)
 
 if (typeof pdfjsLib !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
@@ -189,7 +189,6 @@ async function loadFixedSkills() {
     } catch (e) {}
 }
 
-// ─── NATIVE FILE UPLOADER & DRAG-AND-DROP ──────────────────────────────────
 function initFileUpload() {
     if (!fileInput) return;
 
@@ -342,63 +341,69 @@ function analyzeChapterText(filename, fullText) {
     return activities;
 }
 
-// Unconditional Analyze Button Click Event
-if (analyzeBtn) {
-    analyzeBtn.addEventListener('click', async () => {
-        // If no file attached yet, open file explorer for user
-        if (!state.uploadedFilename) {
-            if (fileInput) fileInput.click();
-            return;
-        }
+// ─── GUARANTEED ANALYZE WORKFLOW FUNCTION (Exposed Globally) ─────────────────
+window.runAnalyzeWorkflow = function() {
+    // If no file attached yet, prompt user to select a file
+    if (!state.uploadedFilename) {
+        if (fileInput) fileInput.click();
+        addChatBubble('ai', '📁 Kripya pehle apni Chapter PDF attach karein.');
+        return;
+    }
 
-        // Auto-defaults
-        if (!state.selectedStage) state.selectedStage = '03. Middle';
-        if (!state.selectedCoreFile) state.selectedCoreFile = 'English M.CG.pdf';
+    if (!state.selectedStage) state.selectedStage = '03. Middle';
+    if (!state.selectedCoreFile) state.selectedCoreFile = 'English M.CG.pdf';
 
-        showLoading(true, '🔍 Executing 9-Step Evidence-Based Chapter Tagging Workflow...');
+    showLoading(true, '🔍 Executing 9-Step Evidence-Based Chapter Tagging Workflow...');
+    
+    setTimeout(() => {
+        const activities = analyzeChapterText(state.uploadedFilename, state.uploadedText);
         
-        setTimeout(() => {
-            const activities = analyzeChapterText(state.uploadedFilename, state.uploadedText);
-            
-            showLoading(false);
-            
-            addChatBubble('ai', `✅ **${state.uploadedFilename}** file ka complete **9-Step Evidence-Based NCF Audit** ho gaya hai!\n\n📊 **Total ${activities.length} Activities Audited.** Inke detailed Audit Tag Cards niche chat mein render kar diye gaye hain:`);
-            
-            activities.forEach(act => {
-                const cardHTML = `
-                <div class="inchat-audit-card">
-                    <div class="card-header-bar">
-                        <span class="page-badge">📄 Page: ${esc(act.pageNumber || 'N/A')}</span>
-                        <span class="tag-badge">${esc(act.competencyCode)}</span>
-                    </div>
-                    <div class="act-title">${esc(act.activityName)}</div>
-                    
-                    <div class="audit-meta-row">
-                        <div><strong>Correct Competency:</strong> ${esc(act.competencyCode)}</div>
-                        <div><strong>21st Century Skill:</strong> ${esc(act.skillName)}</div>
-                        <div><strong>Printed Tag:</strong> ${esc(act.printedCompetency || 'None')}</div>
-                        <div><strong>Audit Status:</strong> <span style="color:var(--accent-teal); font-weight:700;">${esc(act.auditStatus)}</span></div>
-                    </div>
-
-                    <div style="font-size:0.84rem; margin-top:4px;">
-                        <strong>English Competency:</strong> ${esc(act.coreCompetencyText)}<br>
-                        <strong>हिंदी अर्थ:</strong> ${esc(act.coreCompetencyHindi)}
-                    </div>
-
-                    <div class="explanation-card-box">
-                        <strong>Evidence-Based Audit Explanation:</strong><br>
-                        ${esc(act.explanation)}
-                    </div>
-                    
-                    <div style="font-weight:700; color:var(--accent-teal); font-size:0.9rem; margin-top:4px;">
-                        ✅ Final Tag: ${esc(act.competencyCode)} | ${esc(act.skillName)}
-                    </div>
-                </div>`;
+        showLoading(false);
+        
+        addChatBubble('ai', `✅ **${state.uploadedFilename}** file ka complete **9-Step Evidence-Based NCF Audit** ho gaya hai!\n\n📊 **Total ${activities.length} Activities Audited.** Inke detailed Audit Tag Cards niche chat mein render kar diye gaye hain:`);
+        
+        activities.forEach(act => {
+            const cardHTML = `
+            <div class="inchat-audit-card">
+                <div class="card-header-bar">
+                    <span class="page-badge">📄 Page: ${esc(act.pageNumber || 'N/A')}</span>
+                    <span class="tag-badge">${esc(act.competencyCode)}</span>
+                </div>
+                <div class="act-title">${esc(act.activityName)}</div>
                 
-                addChatBubble('ai', cardHTML);
-            });
+                <div class="audit-meta-row">
+                    <div><strong>Correct Competency:</strong> ${esc(act.competencyCode)}</div>
+                    <div><strong>21st Century Skill:</strong> ${esc(act.skillName)}</div>
+                    <div><strong>Printed Tag:</strong> ${esc(act.printedCompetency || 'None')}</div>
+                    <div><strong>Audit Status:</strong> <span style="color:var(--accent-teal); font-weight:700;">${esc(act.auditStatus)}</span></div>
+                </div>
+
+                <div style="font-size:0.84rem; margin-top:4px;">
+                    <strong>English Competency:</strong> ${esc(act.coreCompetencyText)}<br>
+                    <strong>हिंदी अर्थ:</strong> ${esc(act.coreCompetencyHindi)}
+                </div>
+
+                <div class="explanation-card-box">
+                    <strong>Evidence-Based Audit Explanation:</strong><br>
+                    ${esc(act.explanation)}
+                </div>
+                
+                <div style="font-weight:700; color:var(--accent-teal); font-size:0.9rem; margin-top:4px;">
+                    ✅ Final Tag: ${esc(act.competencyCode)} | ${esc(act.skillName)}
+                </div>
+            </div>`;
             
-        }, 400);
+            addChatBubble('ai', cardHTML);
+        });
+        
+    }, 400);
+};
+
+// Also attach event listener as secondary backup
+if (analyzeBtn) {
+    analyzeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.runAnalyzeWorkflow();
     });
 }
 
