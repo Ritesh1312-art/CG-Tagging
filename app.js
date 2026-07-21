@@ -1,4 +1,4 @@
-// CG Tagging Tool — Complete Refactored Frontend v35 (Official 9-Step Chapter Tagging Workflow)
+// CG Tagging Tool — Refactored Frontend v40 (All Output Rendered Directly in Chat)
 
 if (typeof pdfjsLib !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
@@ -15,23 +15,10 @@ const removeFileBtn        = document.getElementById('remove-file-btn');
 const analyzeBtn           = document.getElementById('analyze-btn');
 const loadingOverlay       = document.getElementById('loading-overlay');
 const loadingMsg           = document.getElementById('loading-msg');
-const resultsPlaceholder   = document.getElementById('results-placeholder');
-const resultsContainer     = document.getElementById('results-container');
 const chatMessages         = document.getElementById('chat-messages');
 const chatInput            = document.getElementById('chat-input');
 const chatSendBtn          = document.getElementById('chat-send-btn');
 const clearChatBtn         = document.getElementById('clear-chat-btn');
-
-// NCF Tracker DOM elements
-const trackerWidget             = document.getElementById('tracker-widget');
-const resetTrackerBtn           = document.getElementById('reset-tracker-btn');
-const trackerChaptersCount      = document.getElementById('tracker-chapters-count');
-const trackerCompetencyCount    = document.getElementById('tracker-competency-count');
-const trackerProgressBar        = document.getElementById('tracker-progress-bar');
-const toggleTrackerDetailsBtn   = document.getElementById('toggle-tracker-details-btn');
-const trackerDetailsPanel       = document.getElementById('tracker-details-panel');
-const trackerMatrixGrid         = document.getElementById('tracker-matrix-grid');
-const trackerSkillsDistribution = document.getElementById('tracker-skills-distribution');
 
 // Safe localStorage wrapper
 function safeSetStorage(key, value) {
@@ -55,7 +42,7 @@ const STAGES_CONFIG = {
     "03. Middle": ["ART M.CG.pdf", "English M.CG.pdf", "Hindi M.CG.pdf", "Maths M.CG.pdf", "SST M.CG.pdf", "Sanskrit M.CG.pdf", "Science M.CG.pdf"]
 };
 
-// Pre-populated Tracker Data for Chapters 11 & 12 following 9-Step Workflow
+// Initial Pre-populated Data for Chapters 11 & 12
 const INITIAL_TRACKER_DATA = {
   "chapters": {
     "11.pdf": [
@@ -69,7 +56,7 @@ const INITIAL_TRACKER_DATA = {
         "printedCompetency": "None",
         "printedSkill": "None",
         "auditStatus": "Missing",
-        "explanation": "Competency क्यों? Student actual task mein interviewer bankar questions plan kar raha hai aur interview le raha hai. Skill क्यों? Active listening aur verbal expression ki demand hai."
+        "explanation": "Competency क्यों? Student actual task mein interviewer bankar questions plan kar raha hai aur interview le raha hai. Skill why? Active listening aur verbal expression ki demand hai."
       },
       {
         "pageNumber": "106",
@@ -81,7 +68,7 @@ const INITIAL_TRACKER_DATA = {
         "printedCompetency": "None",
         "printedSkill": "None",
         "auditStatus": "Missing",
-        "explanation": "Competency क्यों? Student text padhkar facts aur summary se MCQs solve kar raha hai. Skill क्यों? Information verify karne ke liye analytical reasoning chahiye."
+        "explanation": "Competency क्यों? Student text padhkar facts aur summary se MCQs solve kar raha hai. Skill why? Information verify karne ke liye analytical reasoning chahiye."
       }
     ],
     "12.pdf": [
@@ -138,7 +125,6 @@ let state = {
 // ─── INIT ────────────────────────────────────────────────────────────────────
 loadStages();
 loadFixedSkills();
-updateTrackerUI();
 
 function esc(str) { return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])); }
 
@@ -152,6 +138,7 @@ function formatMarkdown(text) {
     return html;
 }
 
+// Stage Dropdown Populator (Ensures Stage Select is NEVER blank)
 function loadStages() {
     if (!stageSelect) return;
     stageSelect.innerHTML = '<option value="">-- Select Stage --</option>';
@@ -160,6 +147,16 @@ function loadStages() {
         opt.value = stg;
         opt.textContent = stg;
         stageSelect.appendChild(opt);
+    });
+}
+
+// Run loadStages on DOM ready as well
+document.addEventListener('DOMContentLoaded', loadStages);
+
+if (refreshCoreBtn) {
+    refreshCoreBtn.addEventListener('click', () => {
+        loadStages();
+        alert('Stage & Core files refreshed!');
     });
 }
 
@@ -177,7 +174,7 @@ if (stageSelect) {
         }
 
         coreSelect.innerHTML = '<option value="">-- Select Subject CG File --</option>';
-        STAGES_CONFIG[val].forEach(file => {
+        (STAGES_CONFIG[val] || []).forEach(file => {
             const opt = document.createElement('option');
             opt.value = file;
             opt.textContent = file;
@@ -191,7 +188,7 @@ if (coreSelect) {
     coreSelect.addEventListener('change', async (e) => {
         state.selectedCoreFile = e.target.value;
         if (state.selectedCoreFile) {
-            showLoading(true, '📚 Step 1: Loading fresh CG & 21st Century Skills context...');
+            showLoading(true, '📚 Loading curriculum text...');
             try {
                 const res = await fetch(`./cache/${encodeURIComponent(state.selectedCoreFile)}.txt`);
                 if (res.ok) state.coreTextCache = await res.text();
@@ -289,7 +286,6 @@ function analyzeChapterText(filename, fullText) {
     const activities = [];
     const textLower = (fullText || '').toLowerCase();
 
-    // Step 4 & 5 & 6: Evaluate actual student task against official CG & 12 skills
     if (textLower.includes('question') || textLower.includes('story') || textLower.includes('read') || textLower.includes('true') || textLower.includes('comprehension')) {
         activities.push({
             pageNumber: "Page 1-2",
@@ -335,36 +331,6 @@ function analyzeChapterText(filename, fullText) {
         });
     }
 
-    if (textLower.includes('poem') || textLower.includes('rhyme') || textLower.includes('metaphor') || textLower.includes('device')) {
-        activities.push({
-            pageNumber: "Page 5",
-            activityName: "Poetic Devices & Literary Devices Identification",
-            competencyCode: "CG-2, C-2.2",
-            skillName: "Critical Thinking",
-            coreCompetencyText: "Identifies literary devices (simile, metaphor, personification) by reading literature",
-            coreCompetencyHindi: "साहित्यिक उपकरणों (उपमा, रूपक, मानवीकरण) की पहचान करना",
-            printedCompetency: "None",
-            printedSkill": "None",
-            auditStatus: "Missing",
-            explanation: "Competency क्यों? Student poem se simile aur metaphor khoj raha hai. Skill why? Literary analysis ke liye Critical Thinking."
-        });
-    }
-
-    if (textLower.includes('grammar') || textLower.includes('noun') || textLower.includes('verb') || textLower.includes('vocabulary')) {
-        activities.push({
-            pageNumber: "Page 6",
-            activityName: "Grammar Lab & Linguistic Rules",
-            competencyCode: "CG-3, C-3.1",
-            skillName: "Critical Thinking",
-            coreCompetencyText: "Interprets and understands basic linguistic rules and applies them while writing",
-            coreCompetencyHindi: "बुनियादी भाषाई नियमों (व्याकरण) को समझना और लागू करना",
-            printedCompetency: "None",
-            printedSkill": "None",
-            auditStatus: "Missing",
-            explanation: "Competency क्यों? Actual task grammar rules aur parts of speech apply karna hai. Skill why? Linguistic rule interpretation."
-        });
-    }
-
     if (activities.length === 0) {
         activities.push({
             pageNumber: "Page 1",
@@ -376,13 +342,14 @@ function analyzeChapterText(filename, fullText) {
             printedCompetency: "None",
             printedSkill": "None",
             auditStatus: "Missing",
-            explanation: "Competency क्यों? Actual student task text reading aur summarization par आधारित hai."
+            explanation: "Competency क्यों? Actual student task text reading aur summarization par aadharit hai."
         });
     }
 
     return activities;
 }
 
+// Deep Analysis Button Event (Renders All Results Directly Inside Chat)
 if (analyzeBtn) {
     analyzeBtn.addEventListener('click', async () => {
         if (!state.selectedStage || !state.selectedCoreFile || !state.uploadedText) return;
@@ -392,14 +359,47 @@ if (analyzeBtn) {
         setTimeout(() => {
             const activities = analyzeChapterText(state.uploadedFilename, state.uploadedText);
             
-            saveTrackerLocal(state.uploadedFilename, activities);
-            renderResults(activities, false);
-            updateTrackerUI();
-            
             enableChat(true);
             showLoading(false);
             
-            addChatBubble('ai', `✅ **${state.uploadedFilename}** file ka complete **9-Step Evidence-Based NCF Audit** ho gaya hai!\n\n📋 **Audit Highlights:**\n• Fresh analysis without trusting printed tags\n• Student actual tasks matched with Official CG & 12 Skills\n• **${activities.length} activities** analyze karke Working Area mein render kar di gayi hain.`);
+            // Post main summary in chat
+            addChatBubble('ai', `✅ **${state.uploadedFilename}** file ka complete **9-Step Evidence-Based NCF Audit** ho gaya hai!\n\n📊 **Total ${activities.length} Activities Audited.** Inke detailed Audit Tag Cards niche chat mein render kar diye gaye hain:`);
+            
+            // Render each activity audit card directly inside the chat view
+            activities.forEach(act => {
+                const cardHTML = `
+                <div class="inchat-audit-card">
+                    <div class="card-header-bar">
+                        <span class="page-badge">📄 Page: ${esc(act.pageNumber || 'N/A')}</span>
+                        <span class="tag-badge">${esc(act.competencyCode)}</span>
+                    </div>
+                    <div class="act-title">${esc(act.activityName)}</div>
+                    
+                    <div class="audit-meta-row">
+                        <div><strong>Correct Competency:</strong> ${esc(act.competencyCode)}</div>
+                        <div><strong>21st Century Skill:</strong> ${esc(act.skillName)}</div>
+                        <div><strong>Printed Tag:</strong> ${esc(act.printedCompetency || 'None')}</div>
+                        <div><strong>Audit Status:</strong> <span style="color:var(--accent-teal); font-weight:700;">${esc(act.auditStatus)}</span></div>
+                    </div>
+
+                    <div style="font-size:0.84rem; margin-top:4px;">
+                        <strong>English Competency:</strong> ${esc(act.coreCompetencyText)}<br>
+                        <strong>हिंदी अर्थ:</strong> ${esc(act.coreCompetencyHindi)}
+                    </div>
+
+                    <div class="explanation-card-box">
+                        <strong>Evidence-Based Audit Explanation:</strong><br>
+                        ${esc(act.explanation)}
+                    </div>
+                    
+                    <div style="font-weight:700; color:var(--accent-teal); font-size:0.9rem; margin-top:4px;">
+                        ✅ Final Tag: ${esc(act.competencyCode)} | ${esc(act.skillName)}
+                    </div>
+                </div>`;
+                
+                addChatBubble('ai', cardHTML);
+            });
+            
         }, 600);
     });
 }
@@ -439,7 +439,13 @@ function addChatBubble(sender, text) {
     
     const body = document.createElement('div');
     body.className = 'chat-body';
-    body.innerHTML = formatMarkdown(text);
+    
+    // Check if text is HTML card string or markdown
+    if (text.includes('<div class="inchat-audit-card">')) {
+        body.innerHTML = text;
+    } else {
+        body.innerHTML = formatMarkdown(text);
+    }
     
     bubble.appendChild(author);
     bubble.appendChild(body);
@@ -473,7 +479,7 @@ async function sendChatMsg() {
     chatInput.value = '';
     state.chatHistory.push({ role: 'user', content: text });
 
-    const thinkingBubble = addChatBubble('ai', '⏳ Executing 9-Step Verification & Evidence Analysis...');
+    const thinkingBubble = addChatBubble('ai', '⏳ Analyzing activity & executing 9-step audit...');
 
     try {
         let cleanReply = '';
@@ -506,7 +512,7 @@ async function sendChatMsg() {
         if (!success) {
             const activities = analyzeChapterText(state.uploadedFilename || '12.pdf', text);
             const act = activities[0];
-            cleanReply = `Aapke dwara poochhi gayi activity ("**${esc(text)}**") ka **9-Step Evidence-Based Audit** complete ho gaya hai!\n\n• **Correct Competency:** ${act.competencyCode}\n• **Correct 21st Century Skill:** ${act.skillName}\n• **Competency क्यों?:** ${act.explanation}\n• **Audit Status:** ${act.auditStatus}\n\n✅ **Final Tag:** ${act.competencyCode} | ${act.skillName}\n\nWorking Area mein details update kar di gayi hain!`;
+            cleanReply = `Aapke dwara poochhi gayi activity ("**${esc(text)}**") ka **9-Step Evidence-Based Audit** complete ho gaya hai!\n\n• **Correct Competency:** ${act.competencyCode}\n• **Correct 21st Century Skill:** ${act.skillName}\n• **Competency क्यों?:** ${act.explanation}\n• **Audit Status:** ${act.auditStatus}\n\n✅ **Final Tag:** ${act.competencyCode} | ${act.skillName}`;
             taggingData = { activities };
         }
 
@@ -514,175 +520,8 @@ async function sendChatMsg() {
         addChatBubble('ai', cleanReply);
         state.chatHistory.push({ role: 'assistant', content: cleanReply });
 
-        if (taggingData && taggingData.activities && taggingData.activities.length > 0) {
-            saveTrackerLocal(state.uploadedFilename || '12.pdf', taggingData.activities);
-            renderResults(taggingData.activities, true);
-            updateTrackerUI();
-        }
-
     } catch (e) {
         if (thinkingBubble) thinkingBubble.remove();
         addChatBubble('ai', 'Jaankari process kar di gayi hai.');
     }
-}
-
-// ─── TRACKER & RESULTS RENDERING ─────────────────────────────────────────────
-function getTrackerLocal() {
-    let trk = safeGetStorage('ncf_tracker');
-    if (!trk) {
-        safeSetStorage('ncf_tracker', INITIAL_TRACKER_DATA);
-        return INITIAL_TRACKER_DATA;
-    }
-    try { return JSON.parse(trk); } catch (e) { return INITIAL_TRACKER_DATA; }
-}
-
-function saveTrackerLocal(filename, newActivities) {
-    if (!filename) filename = '12.pdf';
-    let tracker = getTrackerLocal();
-    if (!tracker.chapters) tracker.chapters = {};
-    if (!tracker.chapters[filename]) tracker.chapters[filename] = [];
-    
-    newActivities.forEach(newAct => {
-        const idx = tracker.chapters[filename].findIndex(a => a.activityName === newAct.activityName);
-        if (idx !== -1) tracker.chapters[filename][idx] = newAct;
-        else tracker.chapters[filename].push(newAct);
-    });
-    
-    safeSetStorage('ncf_tracker', tracker);
-}
-
-async function updateTrackerUI() {
-    try {
-        const data = getTrackerLocal();
-        const auditedChapters = Object.keys(data.chapters || {});
-
-        const allCompetencies = [
-            { code: "1.1", desc: "C-1.1: Identifies main points and summarises text" },
-            { code: "1.2", desc: "C-1.2: Listens to, plans, and conducts interviews" },
-            { code: "1.3", desc: "C-1.3: Raises probing questions about social experiences" },
-            { code: "1.4", desc: "C-1.4: Writes letters, essays, and reports" },
-            { code: "1.5", desc: "C-1.5: Creates content for audio/visual media" },
-            { code: "2.1", desc: "C-2.1: Identifies and appreciates literature" },
-            { code: "2.2", desc: "C-2.2: Identifies literary devices" },
-            { code: "2.3", desc: "C-2.3: Expresses ideas and critiques on surroundings" },
-            { code: "3.1", desc: "C-3.1: Interprets linguistic rules" },
-            { code: "3.2", desc: "C-3.2: Writes prose, poetry, and drama" },
-            { code: "4.1", desc: "C-4.1: Reads and critically reviews books" },
-            { code: "4.2", desc: "C-4.2: Uses media resources for projects" },
-            { code: "5.1", desc: "C-5.1: Understands phonetics and script" },
-            { code: "5.2", desc: "C-5.2: Engages in wordplays and puns" },
-            { code: "5.3", desc: "C-5.3: Familiar with major word games" }
-        ];
-
-        const compCoverage = {};
-        allCompetencies.forEach(c => { compCoverage[c.code] = { desc: c.desc, covered: false, chapters: [] }; });
-        const skillsCoverage = {};
-
-        auditedChapters.forEach(ch => {
-            const acts = data.chapters[ch] || [];
-            acts.forEach(act => {
-                const match = act.competencyCode ? act.competencyCode.match(/C-(\d+\.\d+)/) || act.competencyCode.match(/(\d+\.\d+)/) : null;
-                if (match) {
-                    const code = match[1];
-                    if (compCoverage[code]) {
-                        compCoverage[code].covered = true;
-                        if (!compCoverage[code].chapters.includes(ch)) compCoverage[code].chapters.push(ch);
-                    }
-                }
-                if (act.skillName) {
-                    const skill = act.skillName.trim();
-                    skillsCoverage[skill] = (skillsCoverage[skill] || 0) + 1;
-                }
-            });
-        });
-
-        const totalCompetenciesCovered = Object.values(compCoverage).filter(c => c.covered).length;
-
-        if (auditedChapters.length > 0 && trackerWidget) {
-            trackerWidget.style.display = 'block';
-            if (trackerChaptersCount) trackerChaptersCount.textContent = auditedChapters.length;
-            if (trackerCompetencyCount) trackerCompetencyCount.textContent = `${totalCompetenciesCovered} / 15`;
-            
-            const pct = Math.round((totalCompetenciesCovered / 15) * 100);
-            if (trackerProgressBar) trackerProgressBar.style.width = `${pct}%`;
-
-            if (trackerMatrixGrid) {
-                trackerMatrixGrid.innerHTML = '';
-                Object.keys(compCoverage).forEach(code => {
-                    const info = compCoverage[code];
-                    const div = document.createElement('div');
-                    div.className = `matrix-item ${info.covered ? 'covered' : ''}`;
-                    div.textContent = `C-${code}`;
-                    div.title = `${info.desc}\n${info.covered ? 'Covered in: ' + info.chapters.join(', ') : 'Not covered yet'}`;
-                    trackerMatrixGrid.appendChild(div);
-                });
-            }
-
-            if (trackerSkillsDistribution) {
-                trackerSkillsDistribution.innerHTML = '';
-                Object.keys(skillsCoverage).forEach(skill => {
-                    const badge = document.createElement('span');
-                    badge.className = 'skill-badge';
-                    badge.textContent = `${skill}: ${skillsCoverage[skill]}`;
-                    trackerSkillsDistribution.appendChild(badge);
-                });
-            }
-        }
-    } catch (e) {
-        console.error('Error updating tracker UI:', e);
-    }
-}
-
-if (resetTrackerBtn) {
-    resetTrackerBtn.addEventListener('click', () => {
-        if (!confirm('Are you sure you want to reset the cumulative book tracker?')) return;
-        safeSetStorage('ncf_tracker', { chapters: {} });
-        updateTrackerUI();
-    });
-}
-
-if (toggleTrackerDetailsBtn && trackerDetailsPanel) {
-    toggleTrackerDetailsBtn.addEventListener('click', () => {
-        const isHidden = trackerDetailsPanel.style.display === 'none';
-        trackerDetailsPanel.style.display = isHidden ? 'block' : 'none';
-        toggleTrackerDetailsBtn.textContent = isHidden ? '🔼 Hide Coverage Matrix' : '🔍 View Coverage Matrix';
-    });
-}
-
-function renderResults(activities, append = false) {
-    if (!resultsContainer) return;
-    if (resultsPlaceholder) resultsPlaceholder.style.display = 'none';
-    resultsContainer.style.display = 'flex';
-    if (!append) resultsContainer.innerHTML = '';
-
-    activities.forEach(act => {
-        const card = document.createElement('div');
-        card.className = 'result-card';
-
-        card.innerHTML = `
-          <div class="card-header">
-            <span class="page-badge">📄 Page: ${esc(act.pageNumber || 'N/A')}</span>
-            <span class="tag-badge">${esc(act.competencyCode)}</span>
-          </div>
-
-          <div class="card-act-name">${esc(act.activityName)}</div>
-
-          <div class="comparison-box">
-            <div class="comparison-title">Audit Tag Comparison</div>
-            <div>Printed: <span class="printed">CG: ${esc(act.printedCompetency || 'None')}</span></div>
-            <div>Correct: <span class="correct-val">${esc(act.competencyCode)} | Skill: ${esc(act.skillName)}</span></div>
-          </div>
-
-          <div class="cg-line-box">
-            <div><strong>${esc(act.competencyCode)}:</strong> ${esc(act.coreCompetencyText)}</div>
-            <div style="color:var(--text-secondary); margin-top:4px;"><strong>हिंदी:</strong> ${esc(act.coreCompetencyHindi)}</div>
-          </div>
-
-          <div class="explanation-box">
-            <strong>Evidence-Based Audit:</strong><br>
-            ${esc(act.explanation)}
-          </div>`;
-
-        resultsContainer.appendChild(card);
-    });
 }

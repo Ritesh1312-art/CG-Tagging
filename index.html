@@ -30,125 +30,67 @@
         <!-- Main 2-Column Grid Layout -->
         <main class="app-main">
             
-            <!-- Left Column: Inputs (1) + Working Area (3) stacked -->
-            <div class="left-column">
+            <!-- Left Sidebar: Inputs & Configuration Panel (Point 1) -->
+            <section class="panel control-panel">
+                <h2>1. Inputs & Configuration</h2>
                 
-                <!-- 1. Inputs & Configuration Panel -->
-                <section class="panel control-panel">
-                    <h2>1. Inputs & Configuration</h2>
-                    
-                    <!-- Dropdown 1: Select Stage -->
-                    <div class="input-group">
-                        <label for="stage-select">Select Stage</label>
-                        <div class="select-wrapper">
-                            <select id="stage-select">
-                                <option value="">-- Select Stage --</option>
-                            </select>
-                            <button id="refresh-core-btn" title="Refresh files list">🔄</button>
-                        </div>
-                    </div>
-
-                    <!-- Dropdown 2: Select Subject CG File -->
-                    <div class="input-group">
-                        <label for="core-select">Select Subject CG File</label>
-                        <select id="core-select" disabled>
-                            <option value="">-- First select a Stage --</option>
+                <!-- Dropdown 1: Select Stage (Pre-populated to NEVER be blank) -->
+                <div class="input-group">
+                    <label for="stage-select">Select Stage</label>
+                    <div class="select-wrapper">
+                        <select id="stage-select">
+                            <option value="">-- Select Stage --</option>
+                            <option value="01. Foundational">01. Foundational</option>
+                            <option value="02. Preparatory">02. Preparatory</option>
+                            <option value="03. Middle">03. Middle</option>
                         </select>
+                        <button id="refresh-core-btn" title="Refresh files list">🔄</button>
+                    </div>
+                </div>
+
+                <!-- Dropdown 2: Select Subject CG File -->
+                <div class="input-group">
+                    <label for="core-select">Select Subject CG File</label>
+                    <select id="core-select" disabled>
+                        <option value="">-- First select a Stage --</option>
+                    </select>
+                </div>
+
+                <!-- Fixed File Display -->
+                <div class="input-group">
+                    <label>21st Century Skills</label>
+                    <div class="fixed-file-box">
+                        <span class="fixed-icon">📄</span>
+                        <span id="fixed-file-name">21st Century Skill.pdf</span>
+                    </div>
+                </div>
+
+                <!-- File Uploader -->
+                <div class="input-group">
+                    <label>Chapter PDF</label>
+                    <div id="drop-zone" class="drop-zone">
+                        <span class="drop-zone-icon">📤</span>
+                        <p class="drop-zone-text">Drag & drop Chapter PDF here or click to browse</p>
+                        <input type="file" id="file-input" accept=".pdf,.txt" style="display: none;">
                     </div>
 
-                    <!-- Fixed File Display -->
-                    <div class="input-group">
-                        <label>21st Century Skills</label>
-                        <div class="fixed-file-box">
-                            <span class="fixed-icon">📄</span>
-                            <span id="fixed-file-name">21st Century Skill.pdf</span>
-                        </div>
+                    <!-- Uploaded File Info -->
+                    <div id="uploaded-file-status" class="file-status" style="display: none;">
+                        <span class="file-name-text">filename.pdf</span>
+                        <span class="file-remove-btn" id="remove-file-btn">❌</span>
                     </div>
+                </div>
 
-                    <!-- File Uploader -->
-                    <div class="input-group">
-                        <label>Chapter PDF</label>
-                        <div id="drop-zone" class="drop-zone">
-                            <span class="drop-zone-icon">📤</span>
-                            <p class="drop-zone-text">Drag & drop Chapter PDF here or click to browse</p>
-                            <input type="file" id="file-input" accept=".pdf,.txt" style="display: none;">
-                        </div>
+                <!-- Analyze Button -->
+                <button id="analyze-btn" class="btn primary-btn" disabled>🔍 Analyze Chapter PDF & Tag Activities</button>
+            </section>
 
-                        <!-- Uploaded File Info -->
-                        <div id="uploaded-file-status" class="file-status" style="display: none;">
-                            <span class="file-name-text">filename.pdf</span>
-                            <span class="file-remove-btn" id="remove-file-btn">❌</span>
-                        </div>
-                    </div>
-
-                    <!-- Analyze Button -->
-                    <button id="analyze-btn" class="btn primary-btn" disabled>🔍 Analyze & Load Context</button>
-                </section>
-
-                <!-- 3. Working Area Panel (Moved under Point 1) -->
-                <section class="panel results-panel">
-                    <h2>3. Working Area</h2>
-                    
-                    <!-- Cumulative NCF Book Tracker Dashboard -->
-                    <div id="tracker-widget" class="tracker-dashboard" style="display: none;">
-                        <div class="tracker-header">
-                            <div class="tracker-title-box">
-                                <span class="tracker-icon">📊</span>
-                                <h3>Cumulative NCF Book Tracker</h3>
-                            </div>
-                            <button id="reset-tracker-btn" class="reset-btn" title="Reset Cumulative Tracker">Reset</button>
-                        </div>
-                        
-                        <div class="tracker-stats">
-                            <div class="stat-card">
-                                <span class="stat-num" id="tracker-chapters-count">0</span>
-                                <span class="stat-lbl">Chapters Audited</span>
-                            </div>
-                            <div class="stat-card">
-                                <span class="stat-num" id="tracker-competency-count">0 / 15</span>
-                                <span class="stat-lbl">NCF Competencies Covered</span>
-                            </div>
-                        </div>
-
-                        <div class="progress-container">
-                            <div class="progress-bar" id="tracker-progress-bar" style="width: 0%;"></div>
-                        </div>
-
-                        <button id="toggle-tracker-details-btn" class="text-btn">🔍 View Coverage Matrix</button>
-
-                        <div id="tracker-details-panel" class="tracker-details-panel" style="display: none;">
-                            <div class="matrix-title">NCF English Middle-Stage Competency Matrix</div>
-                            <div id="tracker-matrix-grid" class="matrix-grid">
-                                <!-- Matrix items C-1.1 to C-5.3 -->
-                            </div>
-                            <div class="matrix-title" style="margin-top: 15px;">21st Century Skills Distribution</div>
-                            <div id="tracker-skills-distribution" class="skills-distribution">
-                                <!-- Skill badges -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Tagging Result Cards -->
-                    <div class="results-wrapper">
-                        <div id="results-placeholder" class="results-placeholder">
-                            <div class="placeholder-icon">📋</div>
-                            <p>No audited activity results yet.</p>
-                            <p class="placeholder-sub">Upload files and ask questions or request tagging in the chat to see audit results here.</p>
-                        </div>
-                        <div id="results-container" class="results-container" style="display: none;">
-                            <!-- Tag comparison cards render here -->
-                        </div>
-                    </div>
-                </section>
-
-            </div>
-
-            <!-- Right Column: Expanded Interactive Chat Panel (Point 2) -->
+            <!-- Right Column: Full-Height AI Chat Window (Point 2 - All Output Goes Directly In Chat) -->
             <section class="panel chat-panel">
                 <div class="chat-header-bar">
                     <div>
-                        <h2>2. Interactive AI Chat & Doubts</h2>
-                        <p class="chat-subtitle">Ask general questions, discuss NCF guidelines, or request activity tagging</p>
+                        <h2>2. Interactive AI Chat & Evidence Audit</h2>
+                        <p class="chat-subtitle">All activity tagging cards, competency analysis, and explanations will appear directly in this chat</p>
                     </div>
                     <button id="clear-chat-btn" class="text-btn clear-btn" title="Clear conversation">🗑️ Clear Chat</button>
                 </div>
@@ -160,12 +102,14 @@
                         <div class="chat-bubble ai-bubble">
                             <div class="chat-author">AI Academic Auditor</div>
                             <div class="chat-body">
-                                Namaste! Main NCF Curriculum Tagging Assistant hoon. Aap muzse:
-                                <ul>
-                                    <li>Classroom activities ki <strong>NCF Competency & 21st Century Skills tagging</strong> karwa sakte hain.</li>
-                                    <li>NCF Curriculum ke baare mein <strong>koyi bhi doubt ya sawal</strong> pooch sakte hain.</li>
-                                </ul>
-                                Start karne ke liye left side se <strong>Stage, CG File aur Chapter PDF</strong> upload karke "Analyze" button dabayein!
+                                Namaste! Main <strong>NCF Evidence-Based Tagging Engine</strong> hoon.
+                                <br><br>
+                                📋 <strong>How to start:</strong>
+                                <ol style="margin-left: 20px; margin-top: 6px;">
+                                    <li>Left side se <strong>Stage</strong> (e.g. <code>03. Middle</code>) aur <strong>Subject CG File</strong> select karein.</li>
+                                    <li>Apni <strong>Chapter PDF</strong> upload karke <strong>"🔍 Analyze Chapter PDF & Tag Activities"</strong> dabayein.</li>
+                                    <li>Poore chapter ki saari activities ke <strong>Complete NCF Audit Tag Cards</strong> directly is chat window mein aayenge!</li>
+                                </ol>
                             </div>
                         </div>
                     </div>
@@ -192,6 +136,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=20"></script>
+    <script src="app.js?v=40"></script>
 </body>
 </html>
