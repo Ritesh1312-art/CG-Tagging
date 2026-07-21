@@ -72,17 +72,16 @@
                     </div>
                 </div>
 
-                <!-- File Uploader -->
+                <!-- File Uploader with Native Label + Browse Button -->
                 <div class="input-group">
                     <label>Chapter PDF</label>
                     
-                    <!-- Hidden File Input placed outside Dropzone to avoid click bubbling -->
                     <input type="file" id="file-input" accept=".pdf,.txt" style="display: none;">
                     
-                    <div id="drop-zone" class="drop-zone">
+                    <label for="file-input" id="drop-zone" class="drop-zone">
                         <span class="drop-zone-icon">📤</span>
-                        <p class="drop-zone-text">Click here to browse or drag & drop Chapter PDF</p>
-                    </div>
+                        <span class="drop-zone-text">Click to browse or drag & drop Chapter PDF</span>
+                    </label>
 
                     <!-- Uploaded File Status Badge -->
                     <div id="uploaded-file-status" class="file-status" style="display: none;">
@@ -146,6 +145,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=50"></script>
+    <script src="app.js?v=60"></script>
 </body>
 </html>

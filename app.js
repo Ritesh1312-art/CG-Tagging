@@ -1,4 +1,4 @@
-// CG Tagging Tool — Refactored Frontend v50 (Instant File Picker & Drag-and-Drop Fix)
+// CG Tagging Tool — Refactored Frontend v60 (Native Label File Picker & Instant Activation)
 
 if (typeof pdfjsLib !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
@@ -177,6 +177,8 @@ function initDropdowns() {
         state.selectedCoreFile = e.target.value;
         checkReady();
     });
+
+    checkReady();
 }
 
 if (refreshCoreBtn) {
@@ -195,36 +197,34 @@ async function loadFixedSkills() {
     } catch (e) {}
 }
 
-// ─── BULLETPROOF FILE UPLOADER & DRAG-AND-DROP ─────────────────────────────
+// ─── NATIVE FILE UPLOADER & DRAG-AND-DROP ──────────────────────────────────
 function initFileUpload() {
-    if (!dropZone || !fileInput) return;
+    if (!fileInput) return;
 
-    // Click anywhere on dropZone opens file dialog cleanly
-    dropZone.addEventListener('click', (e) => {
-        e.preventDefault();
-        fileInput.click();
-    });
-
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('dragover');
-    });
-
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            handleFileUpload(e.dataTransfer.files[0]);
-        }
-    });
-
+    // Listen to native file picker change event
     fileInput.addEventListener('change', (e) => {
         if (e.target.files && e.target.files.length > 0) {
             handleFileUpload(e.target.files[0]);
         }
     });
+
+    // Drag and drop listeners on dropZone
+    if (dropZone) {
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                handleFileUpload(e.dataTransfer.files[0]);
+            }
+        });
+    }
 
     if (removeFileBtn) {
         removeFileBtn.addEventListener('click', (e) => {
@@ -242,18 +242,19 @@ function initFileUpload() {
 async function handleFileUpload(file) {
     if (!file) return;
 
-    // Instantly set filename and show attached badge
+    // 1. Instantly set state and display file attached badge
     state.uploadedFilename = file.name;
-    state.uploadedText = `Chapter PDF: ${file.name}\nSize: ${file.size} bytes`; // Default fallback text so ready state triggers instantly
+    state.uploadedText = `Chapter PDF: ${file.name}\nSize: ${file.size} bytes`;
     
     const nameLabel = document.querySelector('.file-name-text');
     if (nameLabel) nameLabel.textContent = `${file.name} (Attached ✅)`;
     if (uploadedFileStatus) uploadedFileStatus.style.display = 'flex';
     if (dropZone) dropZone.style.display = 'none';
     
-    checkReady(); // Enables analyze button INSTANTLY!
+    // 2. Instantly enable the Analyze Button!
+    checkReady();
 
-    // Asynchronously read full text in background
+    // 3. Asynchronously read text content in background
     try {
         let text = '';
         try {
@@ -361,7 +362,7 @@ function analyzeChapterText(filename, fullText) {
 // Deep Analysis Button Event (Renders All Results Directly Inside Chat)
 if (analyzeBtn) {
     analyzeBtn.addEventListener('click', async () => {
-        if (!state.selectedStage || !state.selectedCoreFile || !state.uploadedText) return;
+        if (!state.selectedStage || !state.selectedCoreFile || !state.uploadedFilename) return;
         
         showLoading(true, '🔍 Executing 9-Step Evidence-Based Chapter Tagging Workflow...');
         
