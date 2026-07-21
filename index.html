@@ -75,16 +75,19 @@
                 <!-- File Uploader -->
                 <div class="input-group">
                     <label>Chapter PDF</label>
+                    
+                    <!-- Hidden File Input placed outside Dropzone to avoid click bubbling -->
+                    <input type="file" id="file-input" accept=".pdf,.txt" style="display: none;">
+                    
                     <div id="drop-zone" class="drop-zone">
                         <span class="drop-zone-icon">📤</span>
-                        <p class="drop-zone-text">Drag & drop Chapter PDF here or click to browse</p>
-                        <input type="file" id="file-input" accept=".pdf,.txt" style="display: none;">
+                        <p class="drop-zone-text">Click here to browse or drag & drop Chapter PDF</p>
                     </div>
 
-                    <!-- Uploaded File Info -->
+                    <!-- Uploaded File Status Badge -->
                     <div id="uploaded-file-status" class="file-status" style="display: none;">
                         <span class="file-name-text">filename.pdf</span>
-                        <span class="file-remove-btn" id="remove-file-btn">❌</span>
+                        <span class="file-remove-btn" id="remove-file-btn" title="Remove File">❌</span>
                     </div>
                 </div>
 
@@ -92,7 +95,7 @@
                 <button id="analyze-btn" class="btn primary-btn" disabled>🔍 Analyze Chapter PDF & Tag Activities</button>
             </section>
 
-            <!-- Right Column: Full-Height AI Chat Window (Point 2 - All Output Goes Directly In Chat) -->
+            <!-- Right Column: Full-Height AI Chat Window (Point 2) -->
             <section class="panel chat-panel">
                 <div class="chat-header-bar">
                     <div>
@@ -143,6 +146,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=45"></script>
+    <script src="app.js?v=50"></script>
 </body>
 </html>
