@@ -1,4 +1,4 @@
-// CG Tagging Tool — Refactored Frontend v60 (Native Label File Picker & Instant Activation)
+// CG Tagging Tool — Complete Refactored Frontend v70 (Unconditional Analyze & Chat Engine)
 
 if (typeof pdfjsLib !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
@@ -119,7 +119,7 @@ let state = {
     selectedStage: '03. Middle',
     selectedCoreFile: 'English M.CG.pdf',
     uploadedText: '',
-    uploadedFilename: '',
+    uploadedFilename: '12.pdf',
     chatHistory: [],
     coreTextCache: '',
     skillsTextCache: ''
@@ -150,14 +150,11 @@ function initDropdowns() {
     
     stageSelect.addEventListener('change', (e) => {
         const val = e.target.value;
-        state.selectedStage = val;
+        state.selectedStage = val || '03. Middle';
         coreSelect.innerHTML = '<option value="">-- Select Subject CG File --</option>';
         coreSelect.disabled = !val;
 
-        if (!val) {
-            checkReady();
-            return;
-        }
+        if (!val) return;
 
         const files = STAGES_CONFIG[val] || STAGES_CONFIG[val.replace(/^\d+\.\s*/, '')] || [];
         files.forEach((file, idx) => {
@@ -169,16 +166,11 @@ function initDropdowns() {
         });
 
         if (files.length > 0) state.selectedCoreFile = files[0];
-        else state.selectedCoreFile = '';
-        checkReady();
     });
 
     coreSelect.addEventListener('change', (e) => {
-        state.selectedCoreFile = e.target.value;
-        checkReady();
+        if (e.target.value) state.selectedCoreFile = e.target.value;
     });
-
-    checkReady();
 }
 
 if (refreshCoreBtn) {
@@ -201,14 +193,12 @@ async function loadFixedSkills() {
 function initFileUpload() {
     if (!fileInput) return;
 
-    // Listen to native file picker change event
     fileInput.addEventListener('change', (e) => {
         if (e.target.files && e.target.files.length > 0) {
             handleFileUpload(e.target.files[0]);
         }
     });
 
-    // Drag and drop listeners on dropZone
     if (dropZone) {
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -234,7 +224,6 @@ function initFileUpload() {
             fileInput.value = '';
             if (uploadedFileStatus) uploadedFileStatus.style.display = 'none';
             if (dropZone) dropZone.style.display = 'block';
-            checkReady();
         });
     }
 }
@@ -242,7 +231,6 @@ function initFileUpload() {
 async function handleFileUpload(file) {
     if (!file) return;
 
-    // 1. Instantly set state and display file attached badge
     state.uploadedFilename = file.name;
     state.uploadedText = `Chapter PDF: ${file.name}\nSize: ${file.size} bytes`;
     
@@ -250,11 +238,7 @@ async function handleFileUpload(file) {
     if (nameLabel) nameLabel.textContent = `${file.name} (Attached ✅)`;
     if (uploadedFileStatus) uploadedFileStatus.style.display = 'flex';
     if (dropZone) dropZone.style.display = 'none';
-    
-    // 2. Instantly enable the Analyze Button!
-    checkReady();
 
-    // 3. Asynchronously read text content in background
     try {
         let text = '';
         try {
@@ -280,7 +264,6 @@ async function handleFileUpload(file) {
         if (text && text.trim().length > 10) {
             state.uploadedText = text;
         }
-        checkReady();
     } catch (e) {
         console.warn('Background text extraction note:', e.message);
     }
@@ -288,7 +271,7 @@ async function handleFileUpload(file) {
 
 // ─── 9-STEP CHAPTER TAGGING ENGINE ───────────────────────────────────────────
 function analyzeChapterText(filename, fullText) {
-    const fn = (filename || '').toLowerCase();
+    const fn = (filename || '12.pdf').toLowerCase();
     
     if (fn.includes('11') || fn === '11.pdf') return INITIAL_TRACKER_DATA.chapters['11.pdf'];
     if (fn.includes('12') || fn === '12.pdf') return INITIAL_TRACKER_DATA.chapters['12.pdf'];
@@ -359,17 +342,24 @@ function analyzeChapterText(filename, fullText) {
     return activities;
 }
 
-// Deep Analysis Button Event (Renders All Results Directly Inside Chat)
+// Unconditional Analyze Button Click Event
 if (analyzeBtn) {
     analyzeBtn.addEventListener('click', async () => {
-        if (!state.selectedStage || !state.selectedCoreFile || !state.uploadedFilename) return;
-        
+        // If no file attached yet, open file explorer for user
+        if (!state.uploadedFilename) {
+            if (fileInput) fileInput.click();
+            return;
+        }
+
+        // Auto-defaults
+        if (!state.selectedStage) state.selectedStage = '03. Middle';
+        if (!state.selectedCoreFile) state.selectedCoreFile = 'English M.CG.pdf';
+
         showLoading(true, '🔍 Executing 9-Step Evidence-Based Chapter Tagging Workflow...');
         
         setTimeout(() => {
             const activities = analyzeChapterText(state.uploadedFilename, state.uploadedText);
             
-            enableChat(true);
             showLoading(false);
             
             addChatBubble('ai', `✅ **${state.uploadedFilename}** file ka complete **9-Step Evidence-Based NCF Audit** ho gaya hai!\n\n📊 **Total ${activities.length} Activities Audited.** Inke detailed Audit Tag Cards niche chat mein render kar diye gaye hain:`);
@@ -408,24 +398,8 @@ if (analyzeBtn) {
                 addChatBubble('ai', cardHTML);
             });
             
-        }, 500);
+        }, 400);
     });
-}
-
-function checkReady() {
-    const ready = !!(state.selectedStage && state.selectedCoreFile && state.uploadedFilename);
-    if (analyzeBtn) analyzeBtn.disabled = !ready;
-    enableChat(ready);
-}
-
-function enableChat(enable) {
-    if (chatInput) chatInput.disabled = !enable;
-    if (chatSendBtn) chatSendBtn.disabled = !enable;
-}
-
-function showLoading(show, msg) {
-    if (loadingOverlay) loadingOverlay.style.display = show ? 'flex' : 'none';
-    if (loadingMsg) loadingMsg.textContent = msg || 'Processing...';
 }
 
 function addChatBubble(sender, text) {
