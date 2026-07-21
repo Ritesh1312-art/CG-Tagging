@@ -585,6 +585,8 @@ textarea {
 .chat-panel {
     display: flex;
     flex-direction: column;
+    height: 100%;
+    position: relative;
 }
 
 .chat-container {
